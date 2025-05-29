@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SDK代码解析测试</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+</head>
+<body class="bg-gray-50 p-8" x-data="testParser()">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-2xl font-bold mb-6">SDK代码解析测试</h1>
+        
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- 输入区域 -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h2 class="text-lg font-semibold mb-4">输入SDK代码</h2>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">选择示例</label>
+                        <select @change="loadExample($event.target.value)" class="w-full px-3 py-2 border rounded-lg">
+                            <option value="">选择示例代码...</option>
+                            <option value="deepseek">DeepSeek-腾讯代理</option>
+                            <option value="volcengine">火山方舟</option>
+                            <option value="openai">OpenAI</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">SDK代码</label>
+                        <textarea x-model="sdkCode" 
+                                  placeholder="粘贴您的SDK代码..."
+                                  class="w-full h-64 px-3 py-2 border rounded-lg font-mono text-sm"
+                                  style="font-family: 'Courier New', monospace;"></textarea>
+                    </div>
+                    
+                    <button @click="parseCode()" 
+                            :disabled="!sdkCode.trim()"
+                            class="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white py-2 rounded-lg">
+                        解析代码
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 输出区域 -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h2 class="text-lg font-semibold mb-4">解析结果</h2>
+                
+                <div x-show="!parsedResult" class="text-gray-500 text-center py-8">
+                    请输入SDK代码并点击解析
+                </div>
+                
+                <div x-show="parsedResult" class="space-y-4">
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <label class="font-medium text-gray-700">模型:</label>
+                            <p class="text-gray-900" x-text="parsedResult?.model"></p>
+                        </div>
+                        <div>
+                            <label class="font-medium text-gray-700">提供商:</label>
+                            <p class="text-gray-900" x-text="parsedResult?.provider"></p>
+                        </div>
+                        <div>
+                            <label class="font-medium text-gray-700">类型:</label>
+                            <p class="text-gray-900" x-text="parsedResult?.type"></p>
+                        </div>
+                        <div>
+                            <label class="font-medium text-gray-700">流式支持:</label>
+                            <p class="text-gray-900" x-text="parsedResult?.supportsStreaming ? '是' : '否'"></p>
+                        </div>
+                        <div>
+                            <label class="font-medium text-gray-700">思维链支持:</label>
+                            <p class="text-gray-900" x-text="parsedResult?.supportsThinking ? '是' : '否'"></p>
+                        </div>
+                        <div>
+                            <label class="font-medium text-gray-700">API Key变量:</label>
+                            <p class="text-gray-900" x-text="parsedResult?.apiKeyVar"></p>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="font-medium text-gray-700">BaseURL:</label>
+                        <p class="text-gray-900 break-all" x-text="parsedResult?.baseURL"></p>
+                    </div>
+                    
+                    <div>
+                        <label class="font-medium text-gray-700">生成的模型ID:</label>
+                        <code class="bg-gray-100 px-2 py-1 rounded text-sm" x-text="generateModelId()"></code>
+                    </div>
+                    
+                    <div>
+                        <label class="font-medium text-gray-700">生成的名称:</label>
+                        <p class="text-gray-900" x-text="generateName()"></p>
+                    </div>
+                    
+                    <div>
+                        <label class="font-medium text-gray-700">生成的描述:</label>
+                        <p class="text-gray-900" x-text="generateDescription()"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function testParser() {
+            return {
+                sdkCode: '',
+                parsedResult: null,
+                
+                examples: {
+                    deepseek: `const OpenAI = require("openai")
+
+const client = new OpenAI({
+  apiKey: "您的 API Key",
+  baseURL: "https://cloud1-9g9n1il77a00ffbc.api.tcloudbasegateway.com/v1/ai/deepseek/v1",
+})
+
+async function main(){
+  const completion = await client.chat.completions.create({
+      model: "deepseek-r1",
+      messages: [
+        {role: "user", content: "你好"}
+      ],
+      temperature: 0.3,
+      stream: true,
+  })
+
+  for await (const chunk of completion) {
+      console.log(chunk);
+  }
+}
+
+main()`,
+                    volcengine: `import os
+
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://ark.cn-beijing.volces.com/api/v3",
+    api_key=os.environ.get("ARK_API_KEY"),
+)
+
+if __name__ == "__main__":
+    resp = client.chat.completions.create(
+        model="doubao-1-5-pro-32k-250115",
+        messages=[{"content":"天空为什么是蓝色的？","role":"user"}],
+    )
+        
+    print(resp.choices[0].message.content)`,
+                    openai: `const OpenAI = require('openai');
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+  baseURL: 'https://api.openai.com/v1'
+});
+
+async function main() {
+  const completion = await openai.chat.completions.create({
+    messages: [{ role: 'user', content: 'Hello world' }],
+    model: 'gpt-4',
+    stream: false,
+  });
+
+  console.log(completion.choices[0].message.content);
+}
+
+main();`
+                },
+                
+                loadExample(type) {
+                    if (type && this.examples[type]) {
+                        this.sdkCode = this.examples[type];
+                    }
+                },
+                
+                parseCode() {
+                    try {
+                        this.parsedResult = this.extractModelInfoFromCode(this.sdkCode);
+                        console.log('解析结果:', this.parsedResult);
+                    } catch (error) {
+                        console.error('解析失败:', error);
+                        alert('解析失败: ' + error.message);
+                    }
+                },
+                
+                // 复制相同的解析逻辑
+                extractModelInfoFromCode(code) {
+                    const result = {
+                        baseURL: '',
+                        model: '',
+                        apiKeyVar: '',
+                        provider: '',
+                        type: 'text',
+                        supportsStreaming: false,
+                        supportsThinking: false
+                    };
+
+                    // 清理代码，移除注释
+                    let cleanCode = code.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/#.*$/gm, '');
+
+                    // 提取baseURL或base_url
+                    const baseUrlPatterns = [
+                        /baseURL\s*:\s*["']([^"']+)["']/i,
+                        /base_url\s*=\s*["']([^"']+)["']/i,
+                        /baseURL\s*=\s*["']([^"']+)["']/i,
+                        /baseUrl\s*:\s*["']([^"']+)["']/i
+                    ];
+
+                    for (const pattern of baseUrlPatterns) {
+                        const match = cleanCode.match(pattern);
+                        if (match) {
+                            result.baseURL = match[1];
+                            break;
+                        }
+                    }
+
+                    // 提取model
+                    const modelPatterns = [
+                        /model\s*:\s*["']([^"']+)["']/i,
+                        /model\s*=\s*["']([^"']+)["']/i,
+                        /"model"\s*:\s*["']([^"']+)["']/i
+                    ];
+
+                    for (const pattern of modelPatterns) {
+                        const match = cleanCode.match(pattern);
+                        if (match) {
+                            result.model = match[1];
+                            break;
+                        }
+                    }
+
+                    // 提取API Key环境变量
+                    const apiKeyPatterns = [
+                        /apiKey\s*:\s*process\.env\.get\(["']([^"']+)["']\)/i,
+                        /api_key\s*=\s*os\.environ\.get\(["']([^"']+)["']\)/i,
+                        /apiKey\s*:\s*process\.env\[["']([^"']+)["']\]/i,
+                        /apiKey\s*:\s*["']([^"']+)["']/i,
+                        /api_key\s*=\s*["']([^"']+)["']/i
+                    ];
+
+                    for (const pattern of apiKeyPatterns) {
+                        const match = cleanCode.match(pattern);
+                        if (match) {
+                            result.apiKeyVar = match[1];
+                            break;
+                        }
+                    }
+
+                    // 检测流式传输支持
+                    result.supportsStreaming = /stream\s*:\s*true/i.test(cleanCode) || /stream\s*=\s*True/i.test(cleanCode);
+
+                    // 根据baseURL推断provider和其他信息
+                    if (result.baseURL) {
+                        result.provider = this.inferProviderFromURL(result.baseURL);
+                        result.supportsThinking = this.checkThinkingSupport(result.model, result.provider);
+                    }
+
+                    // 检测类型（文本/图像）
+                    if (result.model) {
+                        result.type = this.inferModelType(result.model);
+                    }
+
+                    return result.baseURL && result.model ? result : null;
+                },
+                
+                inferProviderFromURL(url) {
+                    if (url.includes('deepseek')) return 'deepseek';
+                    if (url.includes('openai')) return 'openai';
+                    if (url.includes('volces') || url.includes('ark')) return 'volcengine';
+                    if (url.includes('tencent') || url.includes('tcloudbase')) return 'tencent';
+                    if (url.includes('alibaba') || url.includes('aliyun')) return 'alibaba';
+                    if (url.includes('baidu')) return 'baidu';
+                    if (url.includes('anthropic')) return 'anthropic';
+                    return 'unknown';
+                },
+                
+                checkThinkingSupport(model, provider) {
+                    const thinkingModels = [
+                        'deepseek-r1', 'deepseek-reasoner',
+                        'o1-preview', 'o1-mini', 'o1-pro',
+                        'claude-3-opus-thinking'
+                    ];
+                    return thinkingModels.some(tm => model.toLowerCase().includes(tm.toLowerCase()));
+                },
+                
+                inferModelType(model) {
+                    const imageKeywords = ['dall-e', 'dalle', 'image', 'stable-diffusion', 'midjourney', 'sd'];
+                    return imageKeywords.some(keyword => model.toLowerCase().includes(keyword)) ? 'image' : 'text';
+                },
+                
+                generateModelId() {
+                    if (!this.parsedResult?.type || !this.parsedResult?.provider || !this.parsedResult?.model) {
+                        return '';
+                    }
+                    return `${this.parsedResult.type}_${this.parsedResult.provider}_${this.parsedResult.model}`.replace(/[^a-zA-Z0-9_-]/g, '-');
+                },
+                
+                generateName() {
+                    if (!this.parsedResult) return '';
+                    const providerNames = {
+                        'deepseek': 'DeepSeek',
+                        'openai': 'OpenAI',
+                        'volcengine': '火山方舟',
+                        'tencent': '腾讯云',
+                        'alibaba': '阿里云',
+                        'baidu': '百度',
+                        'anthropic': 'Anthropic'
+                    };
+                    const providerName = providerNames[this.parsedResult.provider] || this.parsedResult.provider.charAt(0).toUpperCase() + this.parsedResult.provider.slice(1);
+                    return `${this.parsedResult.model}-${providerName}`;
+                },
+                
+                generateDescription() {
+                    if (!this.parsedResult) return '';
+                    let desc = `${this.parsedResult.model}模型`;
+                    if (this.parsedResult.provider !== 'unknown') {
+                        const providerNames = {
+                            'deepseek': 'DeepSeek',
+                            'openai': 'OpenAI',
+                            'volcengine': '火山方舟',
+                            'tencent': '腾讯云',
+                            'alibaba': '阿里云',
+                            'baidu': '百度',
+                            'anthropic': 'Anthropic'
+                        };
+                        const providerName = providerNames[this.parsedResult.provider] || this.parsedResult.provider.charAt(0).toUpperCase() + this.parsedResult.provider.slice(1);
+                        desc += `通过${providerName}访问`;
+                    }
+                    if (this.parsedResult.supportsThinking) {
+                        desc += '，支持思维链推理';
+                    }
+                    if (this.parsedResult.supportsStreaming) {
+                        desc += '，支持流式输出';
+                    }
+                    return desc;
+                }
+            }
+        }
+    </script>
+</body>
+</html> 

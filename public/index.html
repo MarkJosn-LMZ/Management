@@ -1,0 +1,1500 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PetMeet 管理面板</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        [x-cloak] { display: none !important; }
+    </style>
+    <script>
+        // 认证检查
+        window.addEventListener('load', function() {
+            const token = localStorage.getItem('adminToken');
+            if (!token) {
+                window.location.href = '/login.html';
+                return;
+            }
+            
+            // 验证token
+            fetch('/api/admin/auth/validate', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (!result.success) {
+                    localStorage.removeItem('adminToken');
+                    localStorage.removeItem('adminUser');
+                    window.location.href = '/login.html';
+                }
+            })
+            .catch(error => {
+                console.error('认证验证失败:', error);
+                localStorage.removeItem('adminToken');
+                localStorage.removeItem('adminUser');
+                window.location.href = '/login.html';
+            });
+        });
+    </script>
+</head>
+<body class="bg-gray-50 font-sans" x-data="adminPanel()" x-init="init()">
+    <!-- 主容器 -->
+    <div class="flex h-screen overflow-hidden">
+        <!-- 侧边导航 -->
+        <div class="w-64 bg-white shadow-lg flex-shrink-0 overflow-y-auto">
+            <div class="p-6 border-b">
+                <h1 class="text-2xl font-bold text-gray-800">
+                    <i class="fas fa-paw text-blue-500 mr-2"></i>
+                    PetMeet 管理
+                </h1>
+            </div>
+            
+            <nav class="mt-6">
+                <div class="px-4 space-y-2">
+                    <button @click="currentView = 'dashboard'" 
+                            :class="currentView === 'dashboard' ? 'bg-blue-50 text-blue-600 border-r-2 border-blue-600' : 'text-gray-600 hover:bg-gray-50'"
+                            class="w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors">
+                        <i class="fas fa-chart-dashboard mr-3"></i>
+                        仪表板
+                    </button>
+                    
+                    <button @click="currentView = 'users'" 
+                            :class="currentView === 'users' ? 'bg-blue-50 text-blue-600 border-r-2 border-blue-600' : 'text-gray-600 hover:bg-gray-50'"
+                            class="w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors">
+                        <i class="fas fa-users mr-3"></i>
+                        用户管理
+                    </button>
+                    
+                    <button @click="currentView = 'posts'" 
+                            :class="currentView === 'posts' ? 'bg-blue-50 text-blue-600 border-r-2 border-blue-600' : 'text-gray-600 hover:bg-gray-50'"
+                            class="w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors">
+                        <i class="fas fa-file-text mr-3"></i>
+                        帖文管理
+                    </button>
+                    
+                    <button @click="currentView = 'ai-models'" 
+                            :class="currentView === 'ai-models' ? 'bg-blue-50 text-blue-600 border-r-2 border-blue-600' : 'text-gray-600 hover:bg-gray-50'"
+                            class="w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors">
+                        <i class="fas fa-robot mr-3"></i>
+                        AI模型管理
+                    </button>
+                    
+                    <button @click="currentView = 'ai-generation'" 
+                            :class="currentView === 'ai-generation' ? 'bg-blue-50 text-blue-600 border-r-2 border-blue-600' : 'text-gray-600 hover:bg-gray-50'"
+                            class="w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors">
+                        <i class="fas fa-magic mr-3"></i>
+                        AI生成工具
+                    </button>
+                </div>
+            </nav>
+        </div>
+
+        <!-- 主内容区域 -->
+        <div class="flex-1 flex flex-col min-w-0">
+            <!-- 顶部导航栏 -->
+            <header class="bg-white shadow-sm border-b px-6 py-4 flex-shrink-0">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-xl font-semibold text-gray-800" x-text="getViewTitle()"></h2>
+                    <div class="flex items-center space-x-4">
+                        <span class="text-sm text-gray-500" x-text="'最后更新: ' + new Date().toLocaleString()"></span>
+                        <button @click="logout()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors">
+                            <i class="fas fa-sign-out-alt mr-2"></i>
+                            退出
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- 主内容 -->
+            <main class="flex-1 overflow-y-auto p-6">
+                <!-- 仪表板视图 -->
+                <div x-show="currentView === 'dashboard'" x-cloak>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <!-- 统计卡片 -->
+                        <div class="bg-white rounded-lg shadow p-6">
+                            <div class="flex items-center">
+                                <div class="p-3 rounded-full bg-blue-100 text-blue-600">
+                                    <i class="fas fa-users text-xl"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm font-medium text-gray-600">总用户数</p>
+                                    <p class="text-2xl font-bold text-gray-900" x-text="stats.totalUsers"></p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white rounded-lg shadow p-6">
+                            <div class="flex items-center">
+                                <div class="p-3 rounded-full bg-green-100 text-green-600">
+                                    <i class="fas fa-file-text text-xl"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm font-medium text-gray-600">总帖文数</p>
+                                    <p class="text-2xl font-bold text-gray-900" x-text="stats.totalPosts"></p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white rounded-lg shadow p-6">
+                            <div class="flex items-center">
+                                <div class="p-3 rounded-full bg-purple-100 text-purple-600">
+                                    <i class="fas fa-robot text-xl"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm font-medium text-gray-600">AI模型数</p>
+                                    <p class="text-2xl font-bold text-gray-900" x-text="stats.totalAIModels"></p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white rounded-lg shadow p-6">
+                            <div class="flex items-center">
+                                <div class="p-3 rounded-full bg-orange-100 text-orange-600">
+                                    <i class="fas fa-comments text-xl"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm font-medium text-gray-600">总评论数</p>
+                                    <p class="text-2xl font-bold text-gray-900" x-text="stats.totalComments"></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 用户管理视图 -->
+                <div x-show="currentView === 'users'" x-cloak>
+                    <div class="bg-white rounded-lg shadow">
+                        <div class="p-6 border-b">
+                            <div class="flex justify-between items-center">
+                                <h3 class="text-lg font-semibold">用户列表</h3>
+                                <div class="flex space-x-3">
+                                    <input type="text" placeholder="搜索用户..." 
+                                           x-model="userSearch"
+                                           class="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <button @click="openUserModal()" 
+                                            class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors">
+                                        <i class="fas fa-plus mr-2"></i>添加用户
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="h-[calc(100vh-280px)] overflow-y-auto overflow-x-auto">
+                            <table class="w-full">
+                                <thead class="bg-gray-50 sticky top-0">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">用户</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PetMeet ID</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">注册时间</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <template x-for="user in filteredUsers" :key="user._id">
+                                        <tr class="hover:bg-gray-50">
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div class="flex items-center">
+                                                    <div class="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
+                                                        <img x-show="user.avatarUrl" :src="user.avatarUrl" 
+                                                             class="h-10 w-10 rounded-full object-cover"
+                                                             @error="$el.style.display='none'">
+                                                        <i x-show="!user.avatarUrl" class="fas fa-user text-gray-400"></i>
+                                                    </div>
+                                                    <div class="ml-4">
+                                                        <div class="text-sm font-medium text-gray-900" x-text="user.nickName"></div>
+                                                        <div class="text-sm text-gray-500" x-text="user._openid"></div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" x-text="user.PetMeetID"></td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="formatDate(user.createTime)"></td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <span :class="user.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'" 
+                                                      class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full">
+                                                    <span x-text="user.status === 'active' ? '活跃' : '禁用'"></span>
+                                                </span>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                <button @click="editUser(user)" class="text-blue-600 hover:text-blue-900 mr-3">编辑</button>
+                                                <button @click="deleteUser(user._id)" class="text-red-600 hover:text-red-900">删除</button>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 帖文管理视图 -->
+                <div x-show="currentView === 'posts'" x-cloak>
+                    <div class="bg-white rounded-lg shadow">
+                        <div class="p-6 border-b">
+                            <div class="flex justify-between items-center">
+                                <h3 class="text-lg font-semibold">帖文列表</h3>
+                                <div class="flex space-x-3">
+                                    <input type="text" placeholder="搜索帖文..." 
+                                           x-model="postSearch"
+                                           class="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <button @click="openPostModal()" 
+                                            class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors">
+                                        <i class="fas fa-plus mr-2"></i>添加帖文
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="h-[calc(100vh-280px)] overflow-y-auto overflow-x-auto">
+                            <table class="w-full">
+                                <thead class="bg-gray-50 sticky top-0">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">标题</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">作者</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">发布时间</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <template x-for="post in filteredPosts" :key="post._id">
+                                        <tr class="hover:bg-gray-50">
+                                            <td class="px-6 py-4">
+                                                <div class="text-sm font-medium text-gray-900" x-text="post.title || post.content?.substring(0, 50) + '...'"></div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" x-text="post.authorName"></td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="formatDate(post.createTime)"></td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <span :class="post.status === 'published' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'" 
+                                                      class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full">
+                                                    <span x-text="post.status === 'published' ? '已发布' : '草稿'"></span>
+                                                </span>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                <button @click="editPost(post)" class="text-blue-600 hover:text-blue-900 mr-3">编辑</button>
+                                                <button @click="deletePost(post._id)" class="text-red-600 hover:text-red-900">删除</button>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AI模型管理视图 -->
+                <div x-show="currentView === 'ai-models'" x-cloak>
+                    <div class="bg-white rounded-lg shadow">
+                        <div class="p-6 border-b">
+                            <div class="flex justify-between items-center">
+                                <h3 class="text-lg font-semibold">AI模型列表</h3>
+                                <div class="flex space-x-3">
+                                    <button @click="testAllAIModels()" 
+                                            :disabled="aiModels.length === 0"
+                                            class="bg-green-500 hover:bg-green-600 disabled:bg-gray-300 text-white px-4 py-2 rounded-lg transition-colors">
+                                        <i class="fas fa-play-circle mr-2"></i>测试所有模型
+                                    </button>
+                                    <button @click="openAIModelModal()" 
+                                            class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors">
+                                        <i class="fas fa-plus mr-2"></i>添加模型
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
+                            <template x-for="model in aiModels" :key="model._id">
+                                <div class="border rounded-lg p-6 hover:shadow-md transition-shadow">
+                                    <div class="flex items-center justify-between mb-4">
+                                        <h4 class="text-lg font-semibold" x-text="model.name"></h4>
+                                        <span :class="model.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'" 
+                                              class="px-2 py-1 text-xs rounded-full">
+                                            <span x-text="model.status === 'active' ? '活跃' : '禁用'"></span>
+                                        </span>
+                                    </div>
+                                    <p class="text-gray-600 text-sm mb-4" x-text="model.description"></p>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-sm text-gray-500" x-text="'版本: ' + model.version"></span>
+                                        <div class="space-x-2">
+                                            <button @click="testAIModel(model)" 
+                                                    class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm">
+                                                测试
+                                            </button>
+                                            <button @click="editAIModel(model)" 
+                                                    class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm">
+                                                编辑
+                                            </button>
+                                            <button @click="deleteAIModel(model._id)" 
+                                                    class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm">
+                                                删除
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AI生成工具视图 -->
+                <div x-show="currentView === 'ai-generation'" x-cloak>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- 用户生成 -->
+                        <div class="bg-white rounded-lg shadow">
+                            <div class="p-6 border-b">
+                                <h3 class="text-lg font-semibold">
+                                    <i class="fas fa-user-plus mr-2 text-blue-500"></i>
+                                    AI生成用户
+                                </h3>
+                            </div>
+                            <div class="p-6 space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">选择AI模型</label>
+                                    <select x-model="selectedAIModel" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <option value="">请选择模型</option>
+                                        <template x-for="model in aiModels.filter(m => m.status === 'active')" :key="model._id">
+                                            <option :value="model._id" x-text="model.name"></option>
+                                        </template>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">生成数量</label>
+                                    <input type="number" x-model="userGenerationCount" min="1" max="20" 
+                                           class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                </div>
+                                
+                                <!-- 预览开关 -->
+                                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                    <div>
+                                        <label class="text-sm font-medium text-gray-700">预览模式</label>
+                                        <p class="text-xs text-gray-500">开启后可预览和编辑生成的用户信息</p>
+                                    </div>
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" x-model="showUserPreview" class="sr-only peer">
+                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                    </label>
+                                </div>
+                                
+                                <button @click="generateUsers()" 
+                                        :disabled="!selectedAIModel || userGenerationCount < 1"
+                                        class="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white py-2 rounded-lg transition-colors">
+                                    <i class="fas fa-magic mr-2"></i>
+                                    <span x-text="showUserPreview ? '生成用户预览' : '直接生成用户'"></span>
+                                </button>
+                            </div>
+                            
+                            <!-- 用户预览区域 -->
+                            <div x-show="previewUsers.length > 0" class="border-t">
+                                <div class="p-4 bg-blue-50 border-b">
+                                    <div class="flex justify-between items-center">
+                                        <h4 class="font-medium text-blue-800">
+                                            <i class="fas fa-eye mr-2"></i>
+                                            用户预览 (<span x-text="previewUsers.length"></span>个)
+                                        </h4>
+                                        <div class="flex space-x-2">
+                                            <button @click="savePreviewUsers()" 
+                                                    class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm transition-colors">
+                                                <i class="fas fa-save mr-1"></i>保存全部
+                                            </button>
+                                            <button @click="clearPreviewUsers()" 
+                                                    class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm transition-colors">
+                                                <i class="fas fa-trash mr-1"></i>清空
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="p-4 max-h-96 overflow-y-auto">
+                                    <div class="space-y-3">
+                                        <template x-for="(user, index) in previewUsers" :key="index">
+                                            <div class="border border-gray-200 rounded-lg p-3 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg">
+                                                <div class="flex justify-between items-start mb-2">
+                                                    <div class="flex items-center">
+                                                        <img :src="user.avatarUrl || 'https://via.placeholder.com/40x40?text=User'" 
+                                                             class="w-8 h-8 rounded-full object-cover mr-2"
+                                                             @error="$el.src='https://via.placeholder.com/40x40?text=User'">
+                                                        <div>
+                                                            <h5 class="font-medium text-sm" x-text="user.nickName"></h5>
+                                                            <p class="text-xs text-blue-600" x-text="'ID: ' + user.PetMeetID"></p>
+                                                        </div>
+                                                    </div>
+                                                    <button @click="removePreviewUser(index)" 
+                                                            class="text-red-500 hover:text-red-700 p-1">
+                                                        <i class="fas fa-times text-xs"></i>
+                                                    </button>
+                                                </div>
+                                                <div class="text-xs text-gray-600">
+                                                    <p><strong>签名:</strong> <span x-text="user.signature || user.bio"></span></p>
+                                                    <p><strong>位置:</strong> <span x-text="user.location || user.city"></span></p>
+                                                    <p x-show="user.petInfo"><strong>宠物:</strong> <span x-text="user.petInfo?.name + ' (' + user.petInfo?.category + ' - ' + user.petInfo?.common_name + ')'"></span></p>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 帖文生成 -->
+                        <div class="bg-white rounded-lg shadow">
+                            <div class="p-6 border-b">
+                                <h3 class="text-lg font-semibold">
+                                    <i class="fas fa-file-plus mr-2 text-green-500"></i>
+                                    AI生成帖文
+                                </h3>
+                            </div>
+                            <div class="p-6 space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">选择AI模型</label>
+                                    <select x-model="selectedAIModelForPosts" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <option value="">请选择模型</option>
+                                        <template x-for="model in aiModels.filter(m => m.status === 'active')" :key="model._id">
+                                            <option :value="model._id" x-text="model.name"></option>
+                                        </template>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">生成数量</label>
+                                    <input type="number" x-model="postGenerationCount" min="1" max="15" 
+                                           class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">主题关键词（可选）</label>
+                                    <input type="text" x-model="postTopic" placeholder="例如：宠物健康、训练技巧..." 
+                                           class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">选择发帖作者</label>
+                                    <select x-model="selectedPostAuthor" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <option value="">随机选择虚拟用户</option>
+                                        <template x-for="user in virtualUsers" :key="user._id">
+                                            <option :value="user._id" x-text="user.nickName + ' (ID: ' + user.PetMeetID + ')'"></option>
+                                        </template>
+                                    </select>
+                                    <p class="text-xs text-gray-500 mt-1">只显示AI生成的虚拟用户，确保内容安全</p>
+                                </div>
+                                
+                                <!-- AI图像生成开关 -->
+                                <div class="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
+                                    <div>
+                                        <label class="text-sm font-medium text-gray-700">AI图像生成</label>
+                                        <p class="text-xs text-gray-500">开启后将根据帖文内容自动生成配图</p>
+                                    </div>
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" x-model="enableImageGeneration" class="sr-only peer">
+                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                                    </label>
+                                </div>
+                                
+                                <!-- 图像模型选择 -->
+                                <div x-show="enableImageGeneration" x-transition class="bg-purple-50 rounded-lg p-3">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">选择图像模型</label>
+                                    <select x-model="selectedImageModel" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                        <option value="">自动选择可用的图像模型</option>
+                                        <template x-for="model in imageModels" :key="model._id">
+                                            <option :value="model._id" x-text="model.name + ' (' + model.provider + ')'"></option>
+                                        </template>
+                                    </select>
+                                    <p class="text-xs text-gray-500 mt-1">
+                                        <span x-show="imageModels.length === 0" class="text-orange-600">
+                                            <i class="fas fa-exclamation-triangle mr-1"></i>
+                                            暂无可用的图像模型，请先在AI模型管理中添加图像模型
+                                        </span>
+                                        <span x-show="imageModels.length > 0" class="text-green-600">
+                                            <i class="fas fa-check-circle mr-1"></i>
+                                            找到 <span x-text="imageModels.length"></span> 个可用的图像模型
+                                        </span>
+                                    </p>
+                                </div>
+                                
+                                <!-- 预览开关 -->
+                                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                    <div>
+                                        <label class="text-sm font-medium text-gray-700">预览模式</label>
+                                        <p class="text-xs text-gray-500">开启后可预览和编辑生成的帖文内容</p>
+                                    </div>
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" x-model="showPostPreview" class="sr-only peer">
+                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                                    </label>
+                                </div>
+                                
+                                <button @click="generatePosts()" 
+                                        :disabled="!selectedAIModelForPosts || postGenerationCount < 1"
+                                        class="w-full bg-green-500 hover:bg-green-600 disabled:bg-gray-300 text-white py-2 rounded-lg transition-colors">
+                                    <i class="fas fa-magic mr-2"></i>
+                                    <span x-text="showPostPreview ? '生成帖文预览' : '直接生成帖文'"></span>
+                                </button>
+                            </div>
+                            
+                            <!-- 帖文预览区域 -->
+                            <div x-show="previewPosts.length > 0" class="border-t">
+                                <div class="p-4 bg-green-50 border-b">
+                                    <div class="flex justify-between items-center">
+                                        <h4 class="font-medium text-green-800">
+                                            <i class="fas fa-eye mr-2"></i>
+                                            帖文预览 (<span x-text="previewPosts.length"></span>个)
+                                        </h4>
+                                        <div class="flex space-x-2">
+                                            <button @click="savePreviewPosts()" 
+                                                    class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm transition-colors">
+                                                <i class="fas fa-save mr-1"></i>保存全部
+                                            </button>
+                                            <button @click="clearPreviewPosts()" 
+                                                    class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm transition-colors">
+                                                <i class="fas fa-trash mr-1"></i>清空
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="p-4 max-h-96 overflow-y-auto">
+                                    <div class="space-y-3">
+                                        <template x-for="(post, index) in previewPosts" :key="index">
+                                            <div class="border border-gray-200 rounded-lg p-3 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg">
+                                                <div class="flex justify-between items-start mb-2">
+                                                    <div class="flex-1">
+                                                        <h5 class="font-medium text-sm mb-1" x-text="post.title"></h5>
+                                                        <div class="flex items-center text-xs text-gray-500 space-x-2">
+                                                            <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded" x-text="post.category"></span>
+                                                            <span x-text="'作者: ' + post.authorName"></span>
+                                                            <span x-show="post.hasAIGeneratedImage" class="bg-purple-100 text-purple-800 px-2 py-1 rounded">
+                                                                <i class="fas fa-image mr-1"></i>AI图片
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <button @click="removePreviewPost(index)" 
+                                                            class="text-red-500 hover:text-red-700 p-1">
+                                                        <i class="fas fa-times text-xs"></i>
+                                                    </button>
+                                                </div>
+                                                
+                                                <!-- AI生成的图片预览 -->
+                                                <div x-show="post.images && post.images.length > 0" class="mb-3">
+                                                    <div class="grid grid-cols-2 gap-2">
+                                                        <template x-for="(image, imgIndex) in post.images.slice(0, 4)" :key="imgIndex">
+                                                            <div class="relative group">
+                                                                <img :src="image" 
+                                                                     :alt="'AI生成图片 ' + (imgIndex + 1)"
+                                                                     class="w-full h-20 object-cover rounded border cursor-pointer hover:opacity-80 transition-opacity"
+                                                                     @click="window.open(image, '_blank')">
+                                                                <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all rounded flex items-center justify-center">
+                                                                    <i class="fas fa-expand text-white opacity-0 group-hover:opacity-100 transition-opacity"></i>
+                                                                </div>
+                                                            </div>
+                                                        </template>
+                                                    </div>
+                                                    <div x-show="post.imagePrompt" class="mt-2 text-xs text-gray-500 bg-gray-50 p-2 rounded">
+                                                        <strong>图像提示词:</strong> <span x-text="post.imagePrompt"></span>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div class="text-xs text-gray-600">
+                                                    <div class="overflow-hidden max-w-full whitespace-pre-line text-sm leading-relaxed" x-text="post.content.length > 150 ? post.content.substring(0, 150) + '...' : post.content"></div>
+                                                    <div class="mt-2 flex flex-wrap gap-1">
+                                                        <template x-for="tag in (post.tags || [])" :key="tag">
+                                                            <span class="bg-gray-100 text-gray-600 px-1 py-0.5 rounded text-xs" x-text="'#' + tag"></span>
+                                                        </template>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- 模态框组件 -->
+    <!-- 用户编辑模态框 -->
+    <div x-show="showUserModal" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
+        <div class="bg-white rounded-lg m-4 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div class="sticky top-0 bg-white border-b p-4 z-10">
+                <h3 class="text-lg font-semibold" x-text="editingUser ? '编辑用户' : '添加用户'"></h3>
+            </div>
+            
+            <form @submit.prevent="saveUser()" class="p-6">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- 左侧：基本信息 -->
+                    <div class="space-y-4">
+                        <h4 class="font-medium text-gray-800 border-b pb-2">基本信息</h4>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">昵称 <span class="text-red-500">*</span></label>
+                            <input type="text" x-model="userForm.nickName" required maxlength="50"
+                                   class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <div class="text-xs text-gray-500 mt-1" x-text="(userForm.nickName || '').length + '/50'"></div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">头像URL</label>
+                            <input type="url" x-model="userForm.avatarUrl" 
+                                   class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                   placeholder="https://example.com/avatar.jpg">
+                            <div x-show="userForm.avatarUrl" class="mt-2">
+                                <img :src="userForm.avatarUrl" class="w-16 h-16 rounded-full object-cover border" 
+                                     @error="$el.style.display='none'">
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">个人简介</label>
+                            <textarea x-model="userForm.bio" rows="3" maxlength="200"
+                                      class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                      placeholder="分享一下您与宠物的故事..."></textarea>
+                            <div class="text-xs text-gray-500 mt-1" x-text="(userForm.bio || '').length + '/200'"></div>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">性别</label>
+                                <select x-model="userForm.gender" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="">未设置</option>
+                                    <option value="male">男</option>
+                                    <option value="female">女</option>
+                                    <option value="unknown">不便透露</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">状态</label>
+                                <select x-model="userForm.status" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="active">活跃</option>
+                                    <option value="inactive">禁用</option>
+                                    <option value="suspended">暂停</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">生日</label>
+                            <input type="date" x-model="userForm.birthday" 
+                                   class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">PetMeet ID</label>
+                            <input type="text" x-model="userForm.PetMeetID" 
+                                   class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                   placeholder="留空将自动生成"
+                                   :readonly="editingUser">
+                            <p class="text-xs text-gray-500 mt-1">编辑模式下不可修改</p>
+                        </div>
+                    </div>
+                    
+                    <!-- 右侧：位置和其他信息 -->
+                    <div class="space-y-4">
+                        <h4 class="font-medium text-gray-800 border-b pb-2">位置信息</h4>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">国家</label>
+                            <input type="text" x-model="userForm.country" 
+                                   class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                   placeholder="例如：中国">
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">省份</label>
+                                <input type="text" x-model="userForm.province" 
+                                       class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                       placeholder="例如：广东省">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">城市</label>
+                                <input type="text" x-model="userForm.city" 
+                                       class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                       placeholder="例如：深圳">
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">语言</label>
+                            <select x-model="userForm.language" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="zh_CN">简体中文</option>
+                                <option value="zh_TW">繁体中文</option>
+                                <option value="en">English</option>
+                            </select>
+                        </div>
+                        
+                        <h4 class="font-medium text-gray-800 border-b pb-2 mt-6">系统信息</h4>
+                        
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">用户等级</label>
+                                <input type="number" x-model="userForm.level" min="1" max="100"
+                                       class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                       placeholder="1">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">经验值</label>
+                                <input type="number" x-model="userForm.experience" min="0"
+                                       class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                       placeholder="0">
+                            </div>
+                        </div>
+                        
+                        <!-- AI生成标识 -->
+                        <div class="p-3 bg-gray-50 rounded border">
+                            <h5 class="font-medium text-gray-700 mb-2">
+                                <i class="fas fa-robot mr-2"></i>AI标识信息
+                            </h5>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">是否AI生成</label>
+                                    <div class="flex items-center">
+                                        <input type="checkbox" x-model="userForm.isAIGenerated" class="mr-2">
+                                        <span class="text-sm" x-text="userForm.isAIGenerated ? 'AI生成用户' : '真实用户'"></span>
+                                    </div>
+                                </div>
+                                <div x-show="userForm.isAIGenerated">
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">AI模型</label>
+                                    <input type="text" x-model="userForm.aiModel" 
+                                           class="w-full px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                           placeholder="例如：deepseek-r1">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 微信信息（如果需要） -->
+                        <div class="p-3 bg-blue-50 rounded border">
+                            <h5 class="font-medium text-blue-700 mb-2">
+                                <i class="fab fa-weixin mr-2"></i>微信信息
+                            </h5>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">OpenID</label>
+                                <input type="text" x-model="userForm._openid" 
+                                       class="w-full px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                       placeholder="微信用户唯一标识"
+                                       :readonly="editingUser">
+                                <p class="text-xs text-gray-500 mt-1">编辑模式下不可修改</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 宠物信息区域 -->
+                <div class="mt-6 p-4 bg-pink-50 rounded-lg border">
+                    <div class="flex justify-between items-center mb-3">
+                        <h4 class="font-medium text-gray-800">
+                            <i class="fas fa-paw mr-2"></i>宠物信息管理
+                        </h4>
+                        <button type="button" @click="openPetModal()" 
+                                :disabled="!editingUser"
+                                class="bg-pink-500 hover:bg-pink-600 disabled:bg-gray-300 text-white px-3 py-1 rounded text-sm transition-colors">
+                            <i class="fas fa-plus mr-1"></i>添加宠物
+                        </button>
+                    </div>
+                    
+                    <!-- 宠物列表 -->
+                    <div x-show="editingUser" class="space-y-3">
+                        <div x-show="loadingPets" class="text-center py-4">
+                            <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-pink-500 mx-auto"></div>
+                            <p class="text-sm text-gray-500 mt-2">加载宠物信息中...</p>
+                        </div>
+                        
+                        <div x-show="!loadingPets && currentUserPets.length > 0">
+                            <template x-for="(pet, index) in currentUserPets" :key="pet._id">
+                                <div class="bg-white rounded-lg p-3 border hover:shadow-md transition-shadow">
+                                    <div class="flex justify-between items-start mb-2">
+                                        <div class="flex-1">
+                                            <h5 class="font-medium text-sm flex items-center">
+                                                <i class="fas fa-paw text-pink-500 mr-2"></i>
+                                                <span x-text="pet.name"></span>
+                                                <span class="ml-2 bg-pink-100 text-pink-800 px-2 py-1 rounded text-xs" 
+                                                      x-text="getPetCategoryName(pet.category)"></span>
+                                            </h5>
+                                            <div class="text-xs text-gray-600 mt-1">
+                                                <span x-show="pet.breed" class="mr-3">
+                                                    <strong>品种:</strong> <span x-text="pet.breed"></span>
+                                                </span>
+                                                <span x-show="pet.age" class="mr-3">
+                                                    <strong>年龄:</strong> <span x-text="pet.age"></span>
+                                                </span>
+                                                <span x-show="pet.gender" class="mr-3">
+                                                    <strong>性别:</strong> <span x-text="pet.gender === 'male' ? '公' : (pet.gender === 'female' ? '母' : pet.gender)"></span>
+                                                </span>
+                                                <span x-show="pet.weight" class="mr-3">
+                                                    <strong>体重:</strong> <span x-text="pet.weight"></span>
+                                                </span>
+                                            </div>
+                                            <div x-show="pet.description" class="text-xs text-gray-500 mt-1">
+                                                <strong>描述:</strong> <span x-text="pet.description"></span>
+                                            </div>
+                                        </div>
+                                        <div class="flex space-x-1 ml-2">
+                                            <button type="button" @click="editPet(pet)" 
+                                                    class="text-blue-600 hover:text-blue-800 p-1">
+                                                <i class="fas fa-edit text-xs"></i>
+                                            </button>
+                                            <button type="button" @click="deletePet(pet._id)" 
+                                                    class="text-red-500 hover:text-red-700 p-1">
+                                                <i class="fas fa-trash text-xs"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- 健康状态指示器 -->
+                                    <div class="flex space-x-2 mt-2">
+                                        <span x-show="pet.vaccinated" class="bg-green-100 text-green-800 px-2 py-1 rounded text-xs">
+                                            <i class="fas fa-shield-virus mr-1"></i>已疫苗
+                                        </span>
+                                        <span x-show="pet.neutered" class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
+                                            <i class="fas fa-cut mr-1"></i>已绝育
+                                        </span>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                        
+                        <div x-show="!loadingPets && currentUserPets.length === 0" class="text-center text-gray-500 py-4">
+                            <i class="fas fa-paw text-gray-300 text-2xl mb-2"></i>
+                            <p>该用户暂未添加宠物信息</p>
+                            <button type="button" @click="openPetModal()" 
+                                    class="mt-2 text-pink-600 hover:text-pink-800 text-sm">
+                                点击添加第一只宠物
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div x-show="!editingUser" class="text-center text-gray-500 py-4">
+                        请先选择或创建用户后管理宠物信息
+                    </div>
+                </div>
+                
+                <div class="flex justify-end space-x-3 mt-6">
+                    <button type="button" @click="closeUserModal()" 
+                            class="px-4 py-2 text-gray-600 border rounded-lg hover:bg-gray-50">
+                        取消
+                    </button>
+                    <button type="submit" 
+                            class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg">
+                        保存
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 帖文编辑模态框 -->
+    <div x-show="showPostModal" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
+        <div class="bg-white rounded-lg m-4 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div class="sticky top-0 bg-white border-b p-4 z-10">
+                <h3 class="text-lg font-semibold" x-text="editingPost ? '编辑帖文' : '添加帖文'"></h3>
+            </div>
+            
+            <form @submit.prevent="savePost()" class="p-6">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- 左侧：基本信息 -->
+                    <div class="space-y-4">
+                        <h4 class="font-medium text-gray-800 border-b pb-2">基本信息</h4>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">标题</label>
+                            <input type="text" x-model="postForm.title" required maxlength="50"
+                                   class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <div class="text-xs text-gray-500 mt-1" x-text="(postForm.title || '').length + '/50'"></div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">内容</label>
+                            <textarea x-model="postForm.content" required rows="4" maxlength="2000"
+                                      class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                            <div class="text-xs text-gray-500 mt-1" x-text="(postForm.content || '').length + '/2000'"></div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">长文内容（可选）</label>
+                            <textarea x-model="postForm.longPost" rows="3"
+                                      class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                      placeholder="可以在这里写更详细的内容..."></textarea>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">权限设置</label>
+                                <select x-model="postForm.permission" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="public">公开</option>
+                                    <option value="friends">仅好友</option>
+                                    <option value="private">私密</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">内容类型</label>
+                                <select x-model="postForm.contentType" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="standard">标准内容</option>
+                                    <option value="adult">成人内容</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">状态</label>
+                            <select x-model="postForm.status" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="approved">已发布</option>
+                                <option value="pending">待审核</option>
+                                <option value="draft">草稿</option>
+                                <option value="rejected">已拒绝</option>
+                            </select>
+                        </div>
+                        
+                        <!-- AI生成相关字段（显示用） -->
+                        <div class="mt-4 p-3 bg-gray-50 rounded border">
+                            <h5 class="font-medium text-gray-700 mb-2">
+                                <i class="fas fa-robot mr-2"></i>AI标识信息
+                            </h5>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">是否AI生成</label>
+                                    <div class="text-sm text-gray-800">
+                                        <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
+                                            手动创建
+                                        </span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">生成模型</label>
+                                    <div class="text-sm text-gray-500">-</div>
+                                </div>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-2">
+                                手动创建的帖文将自动标记为非AI生成内容
+                            </p>
+                        </div>
+                        
+                        <!-- 分类设置 -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">帖文分类</label>
+                            <select x-model="postForm.category" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="管理员创建">管理员创建</option>
+                                <option value="日常分享">日常分享</option>
+                                <option value="健康咨询">健康咨询</option>
+                                <option value="训练技巧">训练技巧</option>
+                                <option value="美食推荐">美食推荐</option>
+                                <option value="用品测评">用品测评</option>
+                                <option value="趣事分享">趣事分享</option>
+                                <option value="求助问答">求助问答</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- 右侧：附加信息 -->
+                    <div class="space-y-4">
+                        <h4 class="font-medium text-gray-800 border-b pb-2">附加信息</h4>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">作者</label>
+                            <select x-model="postForm.authorId" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="">请选择作者</option>
+                                <template x-for="user in users" :key="user._id">
+                                    <option :value="user._id" x-text="user.nickName + ' (ID: ' + (user.PetMeetID || user._id) + ')'"></option>
+                                </template>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">话题标签</label>
+                            <div class="flex flex-wrap gap-1 mb-2" x-show="postForm.topics && postForm.topics.length > 0">
+                                <template x-for="(topic, index) in postForm.topics" :key="index">
+                                    <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs flex items-center">
+                                        #<span x-text="topic"></span>
+                                        <button type="button" @click="removePostTopic(index)" class="ml-1 text-blue-600 hover:text-blue-800">×</button>
+                                    </span>
+                                </template>
+                            </div>
+                            <div class="flex">
+                                <input type="text" x-model="newPostTopic" @keyup.enter="addPostTopic()" 
+                                       placeholder="输入话题标签后按回车"
+                                       class="flex-1 px-3 py-2 border rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <button type="button" @click="addPostTopic()" 
+                                        class="px-3 py-2 bg-blue-500 text-white rounded-r-lg hover:bg-blue-600">
+                                    添加
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">地理位置（可选）</label>
+                            <div x-show="postForm.location" class="mb-2 p-2 bg-gray-50 rounded border">
+                                <div class="flex justify-between items-center">
+                                    <div>
+                                        <div class="font-medium text-sm" x-text="postForm.location?.name"></div>
+                                        <div class="text-xs text-gray-500" x-text="postForm.location?.address"></div>
+                                    </div>
+                                    <button type="button" @click="removePostLocation()" class="text-red-500 hover:text-red-700">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <input type="text" x-model="postLocationSearch" @keyup.enter="searchPostLocation()" 
+                                   placeholder="搜索地点名称"
+                                   class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <button type="button" @click="searchPostLocation()" 
+                                    class="mt-2 px-3 py-1 bg-gray-500 text-white rounded text-sm hover:bg-gray-600">
+                                搜索地点
+                            </button>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">图片上传</label>
+                            <div class="grid grid-cols-3 gap-2 mb-2" x-show="postForm.images && postForm.images.length > 0">
+                                <template x-for="(image, index) in postForm.images" :key="index">
+                                    <div class="relative group">
+                                        <img :src="image" class="w-full h-20 object-cover rounded border cursor-pointer"
+                                             @click="previewPostImage(image)">
+                                        <button type="button" @click="removePostImage(index)" 
+                                                class="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs opacity-0 group-hover:opacity-100 transition-opacity">
+                                            ×
+                                        </button>
+                                    </div>
+                                </template>
+                            </div>
+                            <input type="file" multiple accept="image/*" @change="handlePostImageUpload($event)" 
+                                   class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <p class="text-xs text-gray-500 mt-1">支持多张图片上传，最多9张</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 成人内容配种要求 -->
+                <div x-show="postForm.contentType === 'adult'" x-transition class="mt-6 p-4 bg-pink-50 rounded-lg border">
+                    <h4 class="font-medium text-gray-800 mb-3">
+                        <i class="fas fa-dna mr-2"></i>配种要求设置
+                    </h4>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">体型要求</label>
+                            <select x-model="postForm.breedingRequirements.size" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500">
+                                <option value="any">不限</option>
+                                <option value="small">小型</option>
+                                <option value="medium">中型</option>
+                                <option value="large">大型</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">疫苗要求</label>
+                            <select x-model="postForm.breedingRequirements.vaccine" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500">
+                                <option value="any">不限</option>
+                                <option value="required">必须接种</option>
+                                <option value="preferred">优先接种</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">年龄要求</label>
+                            <select x-model="postForm.breedingRequirements.age" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500">
+                                <option value="any">不限</option>
+                                <option value="young">幼年</option>
+                                <option value="adult">成年</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">品种要求</label>
+                            <input type="text" x-model="postForm.breedingRequirements.breed" 
+                                   placeholder="指定品种或留空"
+                                   class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500">
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">其他要求</label>
+                        <textarea x-model="postForm.breedingRequirements.additional" rows="2" maxlength="300"
+                                  placeholder="其他特殊要求..."
+                                  class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500"></textarea>
+                        <div class="text-xs text-gray-500 mt-1" x-text="(postForm.breedingRequirements.additional || '').length + '/300'"></div>
+                    </div>
+                </div>
+                
+                <div class="flex justify-end space-x-3 mt-6">
+                    <button type="button" @click="closePostModal()" 
+                            class="px-4 py-2 text-gray-600 border rounded-lg hover:bg-gray-50">
+                        取消
+                    </button>
+                    <button type="submit" 
+                            class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg">
+                        保存
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- AI模型编辑模态框 -->
+    <div x-show="showAIModelModal" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 w-full max-w-4xl max-h-screen overflow-y-auto">
+            <h3 class="text-lg font-semibold mb-4" x-text="editingAIModel ? '编辑AI模型' : '添加AI模型'"></h3>
+            
+            <!-- 智能代码解析区域 -->
+            <div x-show="!editingAIModel" class="mb-6 p-4 bg-blue-50 rounded-lg border">
+                <div class="flex items-center justify-between mb-3">
+                    <h4 class="font-medium text-blue-800">
+                        <i class="fas fa-code mr-2"></i>智能SDK代码解析
+                    </h4>
+                    <button @click="showCodeParser = !showCodeParser" 
+                            class="text-blue-600 hover:text-blue-800 text-sm">
+                        <span x-text="showCodeParser ? '隐藏' : '展开'"></span>
+                        <i :class="showCodeParser ? 'fas fa-chevron-up' : 'fas fa-chevron-down'" class="ml-1"></i>
+                    </button>
+                </div>
+                
+                <div x-show="showCodeParser" x-transition>
+                    <p class="text-sm text-blue-700 mb-3">
+                        粘贴您的SDK示例代码，系统将自动提取模型配置信息
+                    </p>
+                    
+                    <div class="space-y-3">
+                        <textarea x-model="sdkCode" 
+                                  placeholder="粘贴您的SDK代码..."
+                                  class="w-full h-32 px-3 py-2 border rounded-lg font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  style="font-family: 'Courier New', monospace;"></textarea>
+                        
+                        <div class="flex space-x-3">
+                            <button @click="parseSDKCode()" 
+                                    :disabled="!sdkCode.trim()"
+                                    class="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white px-4 py-2 rounded-lg text-sm transition-colors">
+                                <i class="fas fa-magic mr-2"></i>解析代码
+                            </button>
+                            
+                            <button @click="sdkCode = ''; parsedModelInfo = null" 
+                                    class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm transition-colors">
+                                <i class="fas fa-times mr-2"></i>清空
+                            </button>
+                        </div>
+                        
+                        <!-- 解析结果预览 -->
+                        <div x-show="parsedModelInfo" x-transition class="bg-green-50 border border-green-200 rounded-lg p-3">
+                            <h5 class="font-medium text-green-800 mb-2">
+                                <i class="fas fa-check-circle mr-2"></i>解析成功
+                            </h5>
+                            <div class="grid grid-cols-2 gap-3 text-sm">
+                                <div><strong>模型:</strong> <span x-text="parsedModelInfo?.model"></span></div>
+                                <div><strong>提供商:</strong> <span x-text="parsedModelInfo?.provider"></span></div>
+                                <div><strong>类型:</strong> <span x-text="parsedModelInfo?.type"></span></div>
+                                <div><strong>流式支持:</strong> <span x-text="parsedModelInfo?.supportsStreaming ? '是' : '否'"></span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <form @submit.prevent="saveAIModel()">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- 基本信息 -->
+                    <div class="space-y-4">
+                        <h5 class="font-medium text-gray-800 border-b pb-2">基本信息</h5>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">模型名称</label>
+                            <input type="text" x-model="aiModelForm.name" required 
+                                   class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">描述</label>
+                            <textarea x-model="aiModelForm.description" rows="3"
+                                      class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">类型</label>
+                                <select x-model="aiModelForm.type" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="text">文本模型</option>
+                                    <option value="image">图像模型</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">状态</label>
+                                <select x-model="aiModelForm.status" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="active">启用</option>
+                                    <option value="inactive">禁用</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 技术配置 -->
+                    <div class="space-y-4">
+                        <h5 class="font-medium text-gray-800 border-b pb-2">技术配置</h5>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">模型标识</label>
+                            <input type="text" x-model="aiModelForm.model" required 
+                                   placeholder="例如: gpt-4, deepseek-r1"
+                                   class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">API地址</label>
+                            <input type="url" x-model="aiModelForm.baseURL" required 
+                                   placeholder="https://api.example.com/v1"
+                                   class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">提供商</label>
+                            <input type="text" x-model="aiModelForm.provider" 
+                                   placeholder="例如: openai, deepseek"
+                                   class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">版本</label>
+                            <input type="text" x-model="aiModelForm.version" 
+                                   class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- API密钥配置 -->
+                <div class="mt-6 p-4 bg-gray-50 rounded-lg">
+                    <h5 class="font-medium text-gray-800 mb-3">
+                        <i class="fas fa-key mr-2"></i>API密钥配置
+                    </h5>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">选择环境变量</label>
+                            <select x-model="selectedApiKey" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="">选择已有的API密钥...</option>
+                                <template x-for="key in availableApiKeys" :key="key.name">
+                                    <option :value="key.name" 
+                                            :class="!key.hasValue ? 'text-gray-400' : ''"
+                                            x-text="key.name + ' - ' + key.description + (key.hasValue ? ' ✓' : ' ✗')"></option>
+                                </template>
+                            </select>
+                            
+                            <!-- 显示选中密钥的预览 -->
+                            <div x-show="selectedApiKey" class="mt-2 text-xs text-gray-600">
+                                <template x-for="key in availableApiKeys" :key="key.name">
+                                    <div x-show="selectedApiKey === key.name">
+                                        <span x-show="key.hasValue" class="text-green-600">
+                                            ✓ 密钥可用: <code x-text="key.preview"></code>
+                                        </span>
+                                        <span x-show="!key.hasValue" class="text-red-600">
+                                            ✗ 密钥未设置或为空
+                                        </span>
+                                    </div>
+                                </template>
+                            </div>
+                            
+                            <button type="button" @click="applySelectedApiKey()" 
+                                    :disabled="!selectedApiKey"
+                                    class="mt-2 bg-green-500 hover:bg-green-600 disabled:bg-gray-300 text-white px-3 py-1 rounded text-sm transition-colors">
+                                应用选择的密钥
+                            </button>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">或直接输入API密钥</label>
+                            <input type="password" x-model="aiModelForm.apiKey" 
+                                   placeholder="sk-... 或 环境变量名"
+                                   class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <p class="text-xs text-gray-500 mt-1">
+                                支持直接输入密钥或环境变量名（如 OPENAI_API_KEY）
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 高级配置 -->
+                <div class="mt-6 p-4 bg-gray-50 rounded-lg">
+                    <h5 class="font-medium text-gray-800 mb-3">
+                        <i class="fas fa-cog mr-2"></i>高级配置
+                    </h5>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">最大Token数</label>
+                            <input type="number" x-model="aiModelForm.config.max_tokens" min="1" max="32000"
+                                   class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">默认温度</label>
+                            <input type="number" x-model="aiModelForm.config.temperature" min="0" max="2" step="0.1"
+                                   class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        
+                        <div class="space-y-2">
+                            <label class="flex items-center">
+                                <input type="checkbox" x-model="aiModelForm.config.supportsStreaming" class="mr-2">
+                                <span class="text-sm">支持流式输出</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" x-model="aiModelForm.config.supportsThinking" class="mr-2">
+                                <span class="text-sm">支持思维链推理</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 预览生成的ID -->
+                <div x-show="aiModelForm.type && aiModelForm.provider && aiModelForm.model" class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p class="text-sm text-blue-700">
+                        <strong>生成的模型ID:</strong> 
+                        <code class="bg-blue-100 px-2 py-1 rounded text-xs" x-text="generateModelId()"></code>
+                    </p>
+                </div>
+                
+                <div class="flex justify-end space-x-3 mt-6">
+                    <button type="button" @click="closeAIModelModal()" 
+                            class="px-4 py-2 text-gray-600 border rounded-lg hover:bg-gray-50">
+                        取消
+                    </button>
+                    <button type="submit" 
+                            class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg">
+                        保存
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 加载指示器 -->
+    <div x-show="loading" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 flex items-center space-x-3">
+            <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+            <span>加载中...</span>
+        </div>
+    </div>
+
+    <!-- 宠物信息编辑模态框 -->
+    <div x-show="showPetModal" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
+        <div class="bg-white rounded-lg m-4 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div class="sticky top-0 bg-white border-b p-4 z-10">
+                <h3 class="text-lg font-semibold" x-text="editingPet ? '编辑宠物信息' : '添加宠物信息'"></h3>
+            </div>
+            
+            <form @submit.prevent="savePet()" class="p-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- 左侧：基本信息 -->
+                    <div class="space-y-4">
+                        <h4 class="font-medium text-gray-800 border-b pb-2">基本信息</h4>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">宠物名称 <span class="text-red-500">*</span></label>
+                            <input type="text" x-model="petForm.name" required maxlength="50"
+                                   class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">宠物类别 <span class="text-red-500">*</span></label>
+                            <select x-model="petForm.category" required class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500">
+                                <option value="">请选择类别</option>
+                                <option value="dog">狗</option>
+                                <option value="cat">猫</option>
+                                <option value="bird">鸟</option>
+                                <option value="fish">鱼</option>
+                                <option value="rabbit">兔子</option>
+                                <option value="hamster">仓鼠</option>
+                                <option value="other">其他</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">品种</label>
+                            <input type="text" x-model="petForm.breed" maxlength="50"
+                                   class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500"
+                                   placeholder="例如：金毛、布偶猫、龙猫">
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">性别</label>
+                                <select x-model="petForm.gender" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500">
+                                    <option value="">未知</option>
+                                    <option value="male">公</option>
+                                    <option value="female">母</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">年龄</label>
+                                <input type="text" x-model="petForm.age" maxlength="20"
+                                       class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500"
+                                       placeholder="例如：2岁、3个月">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 右侧：详细信息 -->
+                    <div class="space-y-4">
+                        <h4 class="font-medium text-gray-800 border-b pb-2">详细信息</h4>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">体重</label>
+                            <input type="text" x-model="petForm.weight" maxlength="20"
+                                   class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500"
+                                   placeholder="例如：5kg、2.5公斤">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">生日</label>
+                            <input type="date" x-model="petForm.birthDate"
+                                   class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">描述</label>
+                            <textarea x-model="petForm.description" rows="3" maxlength="200"
+                                      class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500"
+                                      placeholder="描述宠物的特征、性格等..."></textarea>
+                            <div class="text-xs text-gray-500 mt-1" x-text="(petForm.description || '').length + '/200'"></div>
+                        </div>
+                        
+                        <div class="space-y-3">
+                            <h5 class="font-medium text-gray-700">健康状态</h5>
+                            
+                            <div class="flex items-center">
+                                <input type="checkbox" x-model="petForm.vaccinated" class="mr-2" id="vaccinated">
+                                <label for="vaccinated" class="text-sm text-gray-700">
+                                    <i class="fas fa-shield-virus text-green-600 mr-1"></i>
+                                    已接种疫苗
+                                </label>
+                            </div>
+                            
+                            <div class="flex items-center">
+                                <input type="checkbox" x-model="petForm.neutered" class="mr-2" id="neutered">
+                                <label for="neutered" class="text-sm text-gray-700">
+                                    <i class="fas fa-cut text-blue-600 mr-1"></i>
+                                    已绝育/去势
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex justify-end space-x-3 mt-6">
+                    <button type="button" @click="closePetModal()" 
+                            class="px-4 py-2 text-gray-600 border rounded-lg hover:bg-gray-50">
+                        取消
+                    </button>
+                    <button type="submit" 
+                            class="px-4 py-2 bg-pink-500 hover:bg-pink-600 text-white rounded-lg">
+                        <i class="fas fa-save mr-2"></i>
+                        保存
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/admin.js"></script>
+</body>
+</html> 

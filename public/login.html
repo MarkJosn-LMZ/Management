@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PetMeet 管理面板 - 登录</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen flex items-center justify-center">
+    <div class="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
+        <!-- Logo和标题 -->
+        <div class="text-center mb-8">
+            <div class="mx-auto w-16 h-16 bg-blue-500 rounded-full flex items-center justify-center mb-4">
+                <i class="fas fa-paw text-white text-2xl"></i>
+            </div>
+            <h1 class="text-2xl font-bold text-gray-800">PetMeet 管理面板</h1>
+            <p class="text-gray-600 mt-2">请登录以访问管理功能</p>
+        </div>
+
+        <!-- 登录表单 -->
+        <form id="loginForm" class="space-y-6">
+            <div>
+                <label for="petMeetId" class="block text-sm font-medium text-gray-700 mb-2">
+                    <i class="fas fa-id-badge mr-2"></i>
+                    PetMeet ID
+                </label>
+                <input type="text" 
+                       id="petMeetId" 
+                       name="petMeetId" 
+                       required 
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                       placeholder="请输入您的PetMeet ID (例如: 154387113)">
+            </div>
+
+            <div>
+                <label for="nickName" class="block text-sm font-medium text-gray-700 mb-2">
+                    <i class="fas fa-id-card mr-2"></i>
+                    昵称（可选）
+                </label>
+                <input type="text" 
+                       id="nickName" 
+                       name="nickName" 
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                       placeholder="请输入您的昵称">
+            </div>
+
+            <button type="submit" 
+                    id="loginBtn"
+                    class="w-full bg-blue-500 hover:bg-blue-600 text-white font-medium py-3 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center">
+                <span id="loginText">
+                    <i class="fas fa-sign-in-alt mr-2"></i>
+                    登录
+                </span>
+                <span id="loginLoading" class="hidden">
+                    <i class="fas fa-spinner fa-spin mr-2"></i>
+                    登录中...
+                </span>
+            </button>
+        </form>
+
+        <!-- 提示信息 -->
+        <div id="message" class="mt-4 p-3 rounded-lg hidden">
+            <span id="messageText"></span>
+        </div>
+
+        <!-- 帮助信息 -->
+        <div class="mt-8 text-center">
+            <p class="text-sm text-gray-500">
+                <i class="fas fa-info-circle mr-1"></i>
+                请使用有效的PetMeet ID登录管理面板
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // 登录功能
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const petMeetId = document.getElementById('petMeetId').value.trim();
+            const nickName = document.getElementById('nickName').value.trim();
+            
+            if (!petMeetId) {
+                showMessage('请输入PetMeet ID', 'error');
+                return;
+            }
+
+            // 显示加载状态
+            setLoading(true);
+
+            try {
+                const response = await fetch('/api/admin/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        petMeetId: petMeetId,
+                        nickName: nickName
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // 保存token到localStorage
+                    localStorage.setItem('adminToken', result.token);
+                    localStorage.setItem('adminUser', JSON.stringify(result.user));
+                    
+                    showMessage('登录成功，正在跳转...', 'success');
+                    
+                    // 延迟跳转到管理面板
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 1000);
+                } else {
+                    showMessage(result.message || '登录失败', 'error');
+                }
+            } catch (error) {
+                console.error('登录错误:', error);
+                showMessage('网络错误，请重试', 'error');
+            } finally {
+                setLoading(false);
+            }
+        });
+
+        // 显示消息
+        function showMessage(text, type) {
+            const messageDiv = document.getElementById('message');
+            const messageText = document.getElementById('messageText');
+            
+            messageText.textContent = text;
+            messageDiv.className = `mt-4 p-3 rounded-lg ${type === 'error' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`;
+            messageDiv.classList.remove('hidden');
+            
+            // 3秒后自动隐藏
+            setTimeout(() => {
+                messageDiv.classList.add('hidden');
+            }, 3000);
+        }
+
+        // 设置加载状态
+        function setLoading(loading) {
+            const loginBtn = document.getElementById('loginBtn');
+            const loginText = document.getElementById('loginText');
+            const loginLoading = document.getElementById('loginLoading');
+            
+            if (loading) {
+                loginBtn.disabled = true;
+                loginBtn.classList.add('opacity-75', 'cursor-not-allowed');
+                loginText.classList.add('hidden');
+                loginLoading.classList.remove('hidden');
+            } else {
+                loginBtn.disabled = false;
+                loginBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+                loginText.classList.remove('hidden');
+                loginLoading.classList.add('hidden');
+            }
+        }
+
+        // 检查是否已经登录
+        window.addEventListener('load', function() {
+            const token = localStorage.getItem('adminToken');
+            if (token) {
+                // 验证token是否有效
+                fetch('/api/admin/auth/validate', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                })
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success) {
+                        // token有效，直接跳转到管理面板
+                        window.location.href = '/';
+                    }
+                })
+                .catch(error => {
+                    console.log('Token验证失败:', error);
+                    // token无效，清除本地存储
+                    localStorage.removeItem('adminToken');
+                    localStorage.removeItem('adminUser');
+                });
+            }
+        });
+    </script>
+</body>
+</html> 
