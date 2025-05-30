@@ -205,7 +205,7 @@ router.post('/auth/login', async (req, res) => {
             searchPetMeetId: petMeetId
         });
 
-        const { getDatabase } = require('../../后端/config/cloudbaseConfig');
+        const { getDatabase } = require('../config/cloudbaseConfig');
         const db = getDatabase();
         
         try {
