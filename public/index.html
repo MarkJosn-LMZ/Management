@@ -11,33 +11,121 @@
         [x-cloak] { display: none !important; }
     </style>
     <script>
-        // 认证检查
+        // 认证检查（增强版）
         window.addEventListener('load', function() {
+            console.log('🚀 管理面板页面加载开始');
+            
             const token = localStorage.getItem('adminToken');
+            const user = localStorage.getItem('adminUser');
+            
+            console.log('🔐 检查认证状态', {
+                hasToken: !!token,
+                hasUser: !!user,
+                tokenLength: token ? token.length : 0,
+                userAgent: navigator.userAgent,
+                timestamp: new Date().toISOString()
+            });
+            
             if (!token) {
+                console.warn('❌ 未找到认证令牌，跳转到登录页');
                 window.location.href = '/login.html';
                 return;
             }
             
             // 验证token
+            console.log('🔍 验证认证令牌...', {
+                tokenPrefix: token.substring(0, 20) + '...',
+                validationUrl: '/api/admin/auth/validate'
+            });
+            
+            const validationStartTime = Date.now();
+            
             fetch('/api/admin/auth/validate', {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
             })
-            .then(response => response.json())
+            .then(response => {
+                const validationDuration = Date.now() - validationStartTime;
+                console.log('📡 令牌验证响应', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    duration: validationDuration + 'ms',
+                    headers: Object.fromEntries(response.headers.entries())
+                });
+                return response.json();
+            })
             .then(result => {
+                console.log('✅ 令牌验证结果', {
+                    success: result.success,
+                    message: result.message,
+                    user: result.user,
+                    hasValidUser: !!result.user
+                });
+                
                 if (!result.success) {
+                    console.warn('❌ 令牌验证失败，清除本地存储', {
+                        reason: result.message,
+                        action: 'redirect_to_login'
+                    });
                     localStorage.removeItem('adminToken');
                     localStorage.removeItem('adminUser');
                     window.location.href = '/login.html';
+                } else {
+                    console.log('🎉 认证成功，准备初始化管理面板', {
+                        userId: result.user?.id,
+                        userName: result.user?.nickName,
+                        timestamp: new Date().toISOString()
+                    });
                 }
             })
             .catch(error => {
-                console.error('认证验证失败:', error);
+                const validationDuration = Date.now() - validationStartTime;
+                console.error('🚨 认证验证失败', {
+                    errorName: error.name,
+                    errorMessage: error.message,
+                    errorStack: error.stack,
+                    duration: validationDuration + 'ms',
+                    action: 'clear_storage_and_redirect'
+                });
                 localStorage.removeItem('adminToken');
                 localStorage.removeItem('adminUser');
                 window.location.href = '/login.html';
+            });
+        });
+
+        // 监听页面错误
+        window.addEventListener('error', (event) => {
+            console.error('🚨 页面JavaScript错误', {
+                message: event.message,
+                filename: event.filename,
+                lineno: event.lineno,
+                colno: event.colno,
+                error: event.error?.stack,
+                timestamp: new Date().toISOString()
+            });
+        });
+
+        // 监听未处理的Promise拒绝
+        window.addEventListener('unhandledrejection', (event) => {
+            console.error('🚨 未处理的Promise拒绝', {
+                reason: event.reason,
+                promise: event.promise,
+                timestamp: new Date().toISOString()
+            });
+        });
+
+        // 监听网络状态变化
+        window.addEventListener('online', () => {
+            console.log('🌐 网络连接已恢复', {
+                timestamp: new Date().toISOString(),
+                connection: navigator.connection
+            });
+        });
+
+        window.addEventListener('offline', () => {
+            console.warn('🌐 网络连接已断开', {
+                timestamp: new Date().toISOString()
             });
         });
     </script>

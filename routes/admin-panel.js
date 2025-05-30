@@ -6,9 +6,42 @@ const axios = require('axios');
 // 后端API基础地址 - 从环境变量读取，默认为本地
 const BACKEND_API_BASE = process.env.BACKEND_API_BASE || 'http://localhost:3000';
 
-// 调用后端API的辅助函数
+// 调试日志函数
+function debugLog(level, message, data = null) {
+    const timestamp = new Date().toISOString();
+    const logEntry = {
+        timestamp,
+        level: level.toUpperCase(),
+        component: 'ADMIN-PANEL-API',
+        message,
+        data
+    };
+    
+    console.log(`[${timestamp}] [${level.toUpperCase()}] [ADMIN-PANEL-API] ${message}`, data || '');
+    
+    // 根据级别选择控制台方法
+    const consoleMethod = level === 'error' ? 'error' : 
+                         level === 'warn' ? 'warn' : 
+                         level === 'success' ? 'info' : 'log';
+    
+    if (data) {
+        console[consoleMethod]('详细数据:', data);
+    }
+}
+
+// 调用后端API的辅助函数（增强版）
 async function callBackendAPI(endpoint, method = 'GET', data = null, token = null) {
+    const requestId = Math.random().toString(36).substr(2, 9);
+    
     try {
+        debugLog('info', `API请求开始 [${requestId}]`, {
+            endpoint,
+            method,
+            hasData: !!data,
+            hasToken: !!token,
+            backendBase: BACKEND_API_BASE
+        });
+
         const config = {
             method,
             url: `${BACKEND_API_BASE}/api/admin${endpoint}`,
@@ -20,44 +53,117 @@ async function callBackendAPI(endpoint, method = 'GET', data = null, token = nul
 
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
+            debugLog('info', `添加Authorization头 [${requestId}]`, { 
+                tokenPrefix: token.substring(0, 20) + '...' 
+            });
         }
 
         if (data && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
             config.data = data;
+            debugLog('info', `添加请求数据 [${requestId}]`, { 
+                dataKeys: Object.keys(data),
+                dataSize: JSON.stringify(data).length + ' bytes'
+            });
         }
 
-        console.log(`🔗 调用后端API: ${method} ${config.url}`);
+        debugLog('info', `发送HTTP请求 [${requestId}]`, {
+            url: config.url,
+            method: config.method,
+            headers: Object.keys(config.headers)
+        });
+
+        const startTime = Date.now();
         const response = await axios(config);
+        const duration = Date.now() - startTime;
+
+        debugLog('success', `API请求成功 [${requestId}]`, {
+            status: response.status,
+            statusText: response.statusText,
+            duration: duration + 'ms',
+            responseSize: JSON.stringify(response.data).length + ' bytes',
+            responseDataKeys: response.data ? Object.keys(response.data) : []
+        });
+
         return response.data;
     } catch (error) {
-        console.error('❌ 后端API调用失败:', error.message);
+        const duration = Date.now() - (error.config?.startTime || Date.now());
+        
+        debugLog('error', `API请求失败 [${requestId}]`, {
+            errorName: error.name,
+            errorMessage: error.message,
+            duration: duration + 'ms',
+            responseStatus: error.response?.status,
+            responseStatusText: error.response?.statusText,
+            responseData: error.response?.data,
+            requestConfig: {
+                url: error.config?.url,
+                method: error.config?.method,
+                timeout: error.config?.timeout
+            }
+        });
+
         if (error.response) {
-            console.error('❌ 后端API错误响应:', error.response.data);
+            debugLog('error', `后端API错误响应 [${requestId}]`, {
+                status: error.response.status,
+                statusText: error.response.statusText,
+                data: error.response.data,
+                headers: error.response.headers
+            });
             throw new Error(error.response.data?.message || '后端API调用失败');
         }
         throw error;
     }
 }
 
-// JWT认证中间件
+// JWT认证中间件（增强版）
 const authenticateToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 
+    debugLog('info', 'JWT认证检查开始', {
+        hasAuthHeader: !!authHeader,
+        hasToken: !!token,
+        userAgent: req.headers['user-agent'],
+        clientIP: req.ip || req.connection.remoteAddress
+    });
+
     if (!token) {
+        debugLog('warn', 'JWT认证失败：缺少访问令牌', {
+            authHeader: authHeader || 'null'
+        });
         return res.status(401).json({
             success: false,
             message: '访问令牌未提供'
         });
     }
 
-    jwt.verify(token, process.env.JWT_SECRET || 'petmeet-admin-secret', (err, user) => {
+    const secret = process.env.JWT_SECRET || 'petmeet-admin-secret';
+    debugLog('info', 'JWT令牌验证中', {
+        tokenLength: token.length,
+        tokenPrefix: token.substring(0, 20) + '...',
+        secretConfigured: !!process.env.JWT_SECRET
+    });
+
+    jwt.verify(token, secret, (err, user) => {
         if (err) {
+            debugLog('error', 'JWT令牌验证失败', {
+                errorName: err.name,
+                errorMessage: err.message,
+                tokenExpired: err.name === 'TokenExpiredError',
+                tokenInvalid: err.name === 'JsonWebTokenError'
+            });
             return res.status(403).json({
                 success: false,
                 message: '访问令牌无效'
             });
         }
+        
+        debugLog('success', 'JWT认证成功', {
+            userId: user.id,
+            userOpenid: user.openid,
+            tokenExp: new Date(user.exp * 1000).toISOString()
+        });
+        
         req.user = user;
         req.token = token; // 保存token用于后续API调用
         next();
@@ -66,29 +172,67 @@ const authenticateToken = (req, res, next) => {
 
 // ==================== 认证相关 ====================
 
-// 管理员登录 - 调用后端API
+// 管理员登录 - 调用后端API（增强版）
 router.post('/auth/login', async (req, res) => {
+    const loginId = Math.random().toString(36).substr(2, 9);
+    
     try {
+        debugLog('info', `管理员登录请求开始 [${loginId}]`, {
+            clientIP: req.ip || req.connection.remoteAddress,
+            userAgent: req.headers['user-agent'],
+            requestBody: req.body
+        });
+
         const { petMeetId, nickName } = req.body;
         
+        debugLog('info', `解析登录请求数据 [${loginId}]`, {
+            petMeetId,
+            nickName: nickName || '(未提供)',
+            petMeetIdType: typeof petMeetId,
+            petMeetIdLength: petMeetId ? petMeetId.toString().length : 0
+        });
+        
         if (!petMeetId) {
+            debugLog('warn', `登录验证失败：缺少PetMeet ID [${loginId}]`);
             return res.status(400).json({
                 success: false,
                 message: 'PetMeet ID是必需的'
             });
         }
 
-        // 直接连接数据库查找用户
+        // 数据库连接和查询
+        debugLog('info', `开始数据库查询 [${loginId}]`, {
+            searchPetMeetId: petMeetId
+        });
+
         const { getDatabase } = require('../../后端/config/cloudbaseConfig');
         const db = getDatabase();
         
         try {
+            debugLog('info', `执行数据库查询 [${loginId}]`, {
+                collection: 'user_profile',
+                whereCondition: { PetMeetID: petMeetId },
+                limit: 1
+            });
+
+            const queryStartTime = Date.now();
             const { data: users } = await db.collection('user_profile')
                 .where({ PetMeetID: petMeetId })
                 .limit(1)
                 .get();
+            const queryDuration = Date.now() - queryStartTime;
+            
+            debugLog('info', `数据库查询完成 [${loginId}]`, {
+                queryDuration: queryDuration + 'ms',
+                resultCount: users ? users.length : 0,
+                foundUser: !!users && users.length > 0
+            });
             
             if (!users || users.length === 0) {
+                debugLog('warn', `用户不存在 [${loginId}]`, {
+                    searchedPetMeetId: petMeetId,
+                    searchResult: 'not_found'
+                });
                 return res.status(404).json({
                     success: false,
                     message: '未找到对应的PetMeet ID用户，请检查ID是否正确'
@@ -96,20 +240,45 @@ router.post('/auth/login', async (req, res) => {
             }
             
             const user = users[0];
-            console.log('🔍 找到用户:', { nickName: user.nickName, openid: user._openid });
+            debugLog('success', `找到用户 [${loginId}]`, { 
+                userId: user._id,
+                userNickName: user.nickName, 
+                userOpenid: user._openid,
+                userCreatedAt: user.createdAt,
+                userLevel: user.level
+            });
 
-            // 使用找到的用户openid进行登录
+            // 调用后端登录API
+            debugLog('info', `准备调用后端登录API [${loginId}]`, {
+                backendEndpoint: '/auth/login',
+                loginData: {
+                    openid: user._openid,
+                    nickName: nickName || user.nickName
+                }
+            });
+
+            const backendStartTime = Date.now();
             const result = await callBackendAPI('/auth/login', 'POST', { 
                 openid: user._openid, // 使用用户的真实openid
                 nickName: nickName || user.nickName
             });
+            const backendDuration = Date.now() - backendStartTime;
 
-            console.log('✅ 管理面板登录成功:', result);
+            debugLog('success', `后端登录API调用成功 [${loginId}]`, {
+                backendDuration: backendDuration + 'ms',
+                resultSuccess: result.success,
+                hasToken: !!result.token,
+                hasUser: !!result.user
+            });
             
             res.json(result);
             
         } catch (dbError) {
-            console.error('数据库查询失败:', dbError);
+            debugLog('error', `数据库操作失败 [${loginId}]`, {
+                errorName: dbError.name,
+                errorMessage: dbError.message,
+                errorStack: dbError.stack
+            });
             return res.status(500).json({
                 success: false,
                 message: '数据库查询失败，请重试'
@@ -117,7 +286,11 @@ router.post('/auth/login', async (req, res) => {
         }
         
     } catch (error) {
-        console.error('管理面板登录失败:', error);
+        debugLog('error', `管理面板登录失败 [${loginId}]`, {
+            errorName: error.name,
+            errorMessage: error.message,
+            errorStack: error.stack
+        });
         res.status(500).json({
             success: false,
             message: '登录失败: ' + error.message
@@ -125,13 +298,30 @@ router.post('/auth/login', async (req, res) => {
     }
 });
 
-// 验证JWT token - 调用后端API
+// 验证JWT token - 调用后端API（增强版）
 router.get('/auth/validate', authenticateToken, async (req, res) => {
+    const validateId = Math.random().toString(36).substr(2, 9);
+    
     try {
+        debugLog('info', `Token验证请求开始 [${validateId}]`, {
+            userId: req.user.id,
+            userOpenid: req.user.openid,
+            clientIP: req.ip || req.connection.remoteAddress
+        });
+
         const result = await callBackendAPI('/auth/validate', 'GET', null, req.token);
+        
+        debugLog('success', `Token验证成功 [${validateId}]`, {
+            backendResult: result.success,
+            userValid: !!result.user
+        });
+        
         res.json(result);
     } catch (error) {
-        console.error('Token验证失败:', error);
+        debugLog('error', `Token验证失败 [${validateId}]`, {
+            errorName: error.name,
+            errorMessage: error.message
+        });
         res.status(500).json({
             success: false,
             message: 'Token验证失败: ' + error.message
@@ -144,11 +334,14 @@ router.get('/auth/validate', authenticateToken, async (req, res) => {
 // 获取所有用户 - 调用后端API
 router.get('/users', authenticateToken, async (req, res) => {
     try {
-        console.log('📋 管理面板获取用户列表 - 调用后端API');
+        debugLog('info', '管理面板获取用户列表 - 调用后端API');
         const result = await callBackendAPI('/users', 'GET', null, req.token);
         res.json(result);
     } catch (error) {
-        console.error('获取用户列表失败:', error);
+        debugLog('error', '获取用户列表失败', {
+            errorName: error.name,
+            errorMessage: error.message
+        });
         res.status(500).json({
             success: false,
             message: '获取用户列表失败: ' + error.message

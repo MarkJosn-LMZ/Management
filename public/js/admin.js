@@ -1,4 +1,309 @@
 // PetMeet 管理面板 JavaScript
+
+// 调试系统类
+class AdminDebugLogger {
+    constructor() {
+        this.logs = [];
+        this.isVisible = false;
+        this.counts = {
+            info: 0,
+            success: 0,
+            warning: 0,
+            error: 0
+        };
+        this.init();
+    }
+
+    init() {
+        // 创建调试按钮和面板
+        this.createDebugUI();
+        
+        // 添加初始日志
+        this.log('管理面板调试系统初始化完成', 'success');
+        
+        // 监听网络状态
+        this.setupEventListeners();
+    }
+
+    createDebugUI() {
+        // 创建调试按钮
+        const debugButton = document.createElement('button');
+        debugButton.id = 'adminDebugToggle';
+        debugButton.className = 'fixed top-4 right-4 z-50 bg-gray-800 text-white px-3 py-2 rounded-lg hover:bg-gray-700 transition-colors text-sm';
+        debugButton.innerHTML = '<i class="fas fa-bug mr-1"></i>调试';
+        debugButton.onclick = () => this.toggleDebugPanel();
+        document.body.appendChild(debugButton);
+
+        // 创建调试面板
+        const debugPanel = document.createElement('div');
+        debugPanel.id = 'adminDebugPanel';
+        debugPanel.className = 'fixed top-16 right-4 w-96 bg-gray-900 text-white rounded-lg shadow-xl p-4 hidden z-40 max-h-96 overflow-hidden';
+        debugPanel.innerHTML = `
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-lg font-bold">
+                    <i class="fas fa-bug mr-2"></i>
+                    调试控制台
+                </h3>
+                <div class="space-x-2">
+                    <button id="adminDebugClear" class="bg-red-600 hover:bg-red-700 px-2 py-1 rounded text-xs transition-colors">
+                        <i class="fas fa-trash mr-1"></i>清空
+                    </button>
+                    <button id="adminDebugExport" class="bg-blue-600 hover:bg-blue-700 px-2 py-1 rounded text-xs transition-colors">
+                        <i class="fas fa-download mr-1"></i>导出
+                    </button>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-4 gap-1 mb-3 text-xs">
+                <div class="bg-gray-800 p-1 rounded text-center">
+                    <div class="text-blue-400 font-bold" id="adminDebugCountInfo">0</div>
+                    <div class="text-gray-300">Info</div>
+                </div>
+                <div class="bg-gray-800 p-1 rounded text-center">
+                    <div class="text-green-400 font-bold" id="adminDebugCountSuccess">0</div>
+                    <div class="text-gray-300">Success</div>
+                </div>
+                <div class="bg-gray-800 p-1 rounded text-center">
+                    <div class="text-yellow-400 font-bold" id="adminDebugCountWarning">0</div>
+                    <div class="text-gray-300">Warning</div>
+                </div>
+                <div class="bg-gray-800 p-1 rounded text-center">
+                    <div class="text-red-400 font-bold" id="adminDebugCountError">0</div>
+                    <div class="text-gray-300">Error</div>
+                </div>
+            </div>
+
+            <div class="bg-black p-3 rounded border border-gray-700 h-64 overflow-y-auto font-mono text-xs" id="adminDebugLog">
+                <div class="text-green-400 mb-1">调试系统已启用...</div>
+            </div>
+        `;
+        document.body.appendChild(debugPanel);
+
+        // 绑定事件
+        document.getElementById('adminDebugClear').onclick = () => this.clearLogs();
+        document.getElementById('adminDebugExport').onclick = () => this.exportLogs();
+    }
+
+    setupEventListeners() {
+        // 监听网络状态
+        window.addEventListener('online', () => {
+            this.log('网络连接已恢复', 'success');
+        });
+
+        window.addEventListener('offline', () => {
+            this.log('网络连接已断开', 'warning');
+        });
+
+        // 监听页面可见性变化
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                this.log('页面已隐藏', 'info');
+            } else {
+                this.log('页面已显示', 'info');
+            }
+        });
+
+        // 监听JavaScript错误
+        window.addEventListener('error', (event) => {
+            this.log('JavaScript运行时错误', 'error', {
+                message: event.message,
+                filename: event.filename,
+                lineno: event.lineno,
+                colno: event.colno,
+                stack: event.error?.stack
+            });
+        });
+
+        // 监听未处理的Promise拒绝
+        window.addEventListener('unhandledrejection', (event) => {
+            this.log('未处理的Promise拒绝', 'error', {
+                reason: event.reason
+            });
+        });
+    }
+
+    toggleDebugPanel() {
+        const panel = document.getElementById('adminDebugPanel');
+        this.isVisible = !this.isVisible;
+        
+        if (this.isVisible) {
+            panel.classList.remove('hidden');
+            this.log('调试面板已显示', 'info');
+        } else {
+            panel.classList.add('hidden');
+        }
+    }
+
+    log(message, level = 'info', data = null) {
+        const timestamp = new Date().toLocaleTimeString('zh-CN', {
+            hour12: false,
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            fractionalSecondDigits: 3
+        });
+
+        const logEntry = {
+            timestamp,
+            level,
+            message,
+            data: data ? JSON.stringify(data, null, 2) : null
+        };
+
+        this.logs.push(logEntry);
+        this.counts[level]++;
+        this.updateDisplay();
+        this.updateCounts();
+
+        // 同时输出到浏览器控制台
+        const consoleMethod = level === 'error' ? 'error' :
+                            level === 'warning' ? 'warn' :
+                            level === 'success' ? 'info' : 'log';
+        console[consoleMethod](`[ADMIN-PANEL] [${timestamp}] ${message}`, data || '');
+    }
+
+    updateDisplay() {
+        const logContainer = document.getElementById('adminDebugLog');
+        if (!logContainer) return;
+
+        const latestLogs = this.logs.slice(-100); // 显示最新100条
+
+        const colorClasses = {
+            info: 'text-blue-400',
+            success: 'text-green-400',
+            warning: 'text-yellow-400',
+            error: 'text-red-400'
+        };
+
+        logContainer.innerHTML = latestLogs.map(log => {
+            const dataStr = log.data ? `\n    ${log.data}` : '';
+            const levelColor = colorClasses[log.level] || 'text-gray-400';
+
+            return `<div class="mb-1 leading-tight">
+                <span class="text-gray-400">[${log.timestamp}]</span>
+                <span class="${levelColor} font-bold">[${log.level.toUpperCase()}]</span>
+                <span class="text-white">${this.escapeHtml(log.message)}</span>
+                ${dataStr ? `<div class="text-gray-300 ml-2 mt-1 whitespace-pre-wrap text-xs">${this.escapeHtml(dataStr)}</div>` : ''}
+            </div>`;
+        }).join('');
+
+        // 自动滚动到底部
+        logContainer.scrollTop = logContainer.scrollHeight;
+    }
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    updateCounts() {
+        const elements = {
+            info: document.getElementById('adminDebugCountInfo'),
+            success: document.getElementById('adminDebugCountSuccess'),
+            warning: document.getElementById('adminDebugCountWarning'),
+            error: document.getElementById('adminDebugCountError')
+        };
+
+        Object.keys(elements).forEach(level => {
+            if (elements[level]) {
+                elements[level].textContent = this.counts[level];
+            }
+        });
+    }
+
+    clearLogs() {
+        this.logs = [];
+        this.counts = { info: 0, success: 0, warning: 0, error: 0 };
+        this.updateDisplay();
+        this.updateCounts();
+        this.log('调试日志已清空', 'info');
+    }
+
+    exportLogs() {
+        const logText = this.logs.map(log => {
+            const dataStr = log.data ? ` | 数据: ${log.data}` : '';
+            return `[${log.timestamp}] [${log.level.toUpperCase()}] ${log.message}${dataStr}`;
+        }).join('\n');
+
+        const blob = new Blob([logText], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `petmeet-admin-panel-debug-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.log`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        this.log('调试日志已导出', 'success');
+    }
+
+    // API请求拦截器
+    interceptFetch() {
+        const originalFetch = window.fetch;
+        const debugLogger = this;
+
+        window.fetch = async function(...args) {
+            const [url, options = {}] = args;
+            const requestId = Math.random().toString(36).substr(2, 9);
+            
+            debugLogger.log(`API请求开始 [${requestId}]`, 'info', {
+                url: url.toString(),
+                method: options.method || 'GET',
+                hasBody: !!options.body,
+                headers: options.headers
+            });
+
+            const startTime = Date.now();
+            
+            try {
+                const response = await originalFetch.apply(this, args);
+                const duration = Date.now() - startTime;
+                
+                debugLogger.log(`API请求完成 [${requestId}]`, 'success', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    duration: duration + 'ms',
+                    url: url.toString()
+                });
+
+                // 克隆响应以便后续处理
+                const responseClone = response.clone();
+                
+                // 如果是JSON响应，记录响应数据
+                if (response.headers.get('content-type')?.includes('application/json')) {
+                    responseClone.json().then(data => {
+                        debugLogger.log(`API响应数据 [${requestId}]`, 'info', {
+                            responseData: data
+                        });
+                    }).catch(() => {
+                        // 忽略JSON解析错误
+                    });
+                }
+
+                return response;
+            } catch (error) {
+                const duration = Date.now() - startTime;
+                
+                debugLogger.log(`API请求失败 [${requestId}]`, 'error', {
+                    error: error.message,
+                    duration: duration + 'ms',
+                    url: url.toString()
+                });
+                
+                throw error;
+            }
+        };
+    }
+}
+
+// 初始化调试系统
+const adminDebugLogger = new AdminDebugLogger();
+
+// 拦截fetch请求以进行调试
+adminDebugLogger.interceptFetch();
+
 function adminPanel() {
     return {
         // 当前视图
@@ -156,10 +461,79 @@ function adminPanel() {
             };
         },
         
-        // 初始化
+        // 初始化（增强版）
         async init() {
-            await this.loadAllData();
-            await this.loadVirtualUsers(); // 加载虚拟用户
+            adminDebugLogger.log('管理面板初始化开始', 'info');
+            
+            try {
+                // 验证登录状态
+                adminDebugLogger.log('验证用户登录状态', 'info');
+                await this.verifyAuth();
+                
+                // 加载所有数据
+                adminDebugLogger.log('开始加载管理面板数据', 'info');
+                await this.loadAllData();
+                
+                // 加载虚拟用户
+                adminDebugLogger.log('加载虚拟用户数据', 'info');
+                await this.loadVirtualUsers();
+                
+                adminDebugLogger.log('管理面板初始化完成', 'success');
+            } catch (error) {
+                adminDebugLogger.log('管理面板初始化失败', 'error', {
+                    errorName: error.name,
+                    errorMessage: error.message,
+                    errorStack: error.stack
+                });
+                this.handleError('初始化失败', error);
+            }
+        },
+
+        // 验证认证状态
+        async verifyAuth() {
+            const token = localStorage.getItem('adminToken');
+            adminDebugLogger.log('检查认证令牌', 'info', {
+                hasToken: !!token,
+                tokenLength: token ? token.length : 0
+            });
+            
+            if (!token) {
+                adminDebugLogger.log('未找到认证令牌，跳转到登录页', 'warning');
+                window.location.href = '/login.html';
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/admin/auth/validate', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                const result = await response.json();
+                adminDebugLogger.log('令牌验证结果', 'info', { result });
+
+                if (!result.success) {
+                    adminDebugLogger.log('令牌验证失败，清除本地存储', 'warning');
+                    localStorage.removeItem('adminToken');
+                    localStorage.removeItem('adminUser');
+                    window.location.href = '/login.html';
+                }
+            } catch (error) {
+                adminDebugLogger.log('令牌验证请求失败', 'error', { error: error.message });
+                throw error;
+            }
+        },
+
+        // 错误处理
+        handleError(message, error) {
+            adminDebugLogger.log(`错误处理: ${message}`, 'error', {
+                errorName: error.name,
+                errorMessage: error.message,
+                errorStack: error.stack
+            });
+            
+            this.showNotification(`${message}: ${error.message}`, 'error');
         },
         
         // 获取视图标题

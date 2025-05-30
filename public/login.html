@@ -6,127 +6,410 @@
     <title>PetMeet 管理面板 - 登录</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'debug-gray': '#374151',
+                        'debug-blue': '#3b82f6',
+                        'debug-green': '#10b981',
+                        'debug-yellow': '#f59e0b',
+                        'debug-red': '#ef4444'
+                    }
+                }
+            }
+        }
+    </script>
 </head>
 <body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen flex items-center justify-center">
-    <div class="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
-        <!-- Logo和标题 -->
-        <div class="text-center mb-8">
-            <div class="mx-auto w-16 h-16 bg-blue-500 rounded-full flex items-center justify-center mb-4">
-                <i class="fas fa-paw text-white text-2xl"></i>
+    <!-- 调试模式切换按钮 -->
+    <button id="debugToggle" class="fixed top-5 right-5 z-50 bg-gray-800 text-white px-3 py-2 rounded-lg hover:bg-gray-700 transition-colors">
+        <i class="fas fa-bug mr-1"></i>
+        调试模式
+    </button>
+
+    <div class="flex w-full max-w-6xl">
+        <!-- 登录表单区域 -->
+        <div class="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
+            <!-- Logo和标题 -->
+            <div class="text-center mb-8">
+                <div class="mx-auto w-16 h-16 bg-blue-500 rounded-full flex items-center justify-center mb-4">
+                    <i class="fas fa-paw text-white text-2xl"></i>
+                </div>
+                <h1 class="text-2xl font-bold text-gray-800">PetMeet 管理面板</h1>
+                <p class="text-gray-600 mt-2">请登录以访问管理功能</p>
             </div>
-            <h1 class="text-2xl font-bold text-gray-800">PetMeet 管理面板</h1>
-            <p class="text-gray-600 mt-2">请登录以访问管理功能</p>
+
+            <!-- 登录表单 -->
+            <form id="loginForm" class="space-y-6">
+                <div>
+                    <label for="petMeetId" class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-id-badge mr-2"></i>
+                        PetMeet ID
+                    </label>
+                    <input type="text" 
+                           id="petMeetId" 
+                           name="petMeetId" 
+                           required 
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           placeholder="请输入您的PetMeet ID (例如: 154387113)">
+                </div>
+
+                <div>
+                    <label for="nickName" class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-id-card mr-2"></i>
+                        昵称（可选）
+                    </label>
+                    <input type="text" 
+                           id="nickName" 
+                           name="nickName" 
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           placeholder="请输入您的昵称">
+                </div>
+
+                <button type="submit" 
+                        id="loginBtn"
+                        class="w-full bg-blue-500 hover:bg-blue-600 text-white font-medium py-3 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center">
+                    <span id="loginText">
+                        <i class="fas fa-sign-in-alt mr-2"></i>
+                        登录
+                    </span>
+                    <span id="loginLoading" class="hidden">
+                        <i class="fas fa-spinner fa-spin mr-2"></i>
+                        登录中...
+                    </span>
+                </button>
+            </form>
+
+            <!-- 提示信息 -->
+            <div id="message" class="mt-4 p-3 rounded-lg hidden">
+                <span id="messageText"></span>
+            </div>
+
+            <!-- 帮助信息 -->
+            <div class="mt-8 text-center">
+                <p class="text-sm text-gray-500">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    请使用有效的PetMeet ID登录管理面板
+                </p>
+            </div>
         </div>
 
-        <!-- 登录表单 -->
-        <form id="loginForm" class="space-y-6">
-            <div>
-                <label for="petMeetId" class="block text-sm font-medium text-gray-700 mb-2">
-                    <i class="fas fa-id-badge mr-2"></i>
-                    PetMeet ID
-                </label>
-                <input type="text" 
-                       id="petMeetId" 
-                       name="petMeetId" 
-                       required 
-                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                       placeholder="请输入您的PetMeet ID (例如: 154387113)">
+        <!-- 调试信息显示器 -->
+        <div id="debugPanel" class="ml-6 bg-gray-900 text-white rounded-lg shadow-xl p-6 w-full max-w-2xl hidden">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-bold">
+                    <i class="fas fa-bug mr-2"></i>
+                    调试信息
+                </h2>
+                <div class="space-x-2">
+                    <button id="clearDebugLog" class="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-sm transition-colors">
+                        <i class="fas fa-trash mr-1"></i>
+                        清空
+                    </button>
+                    <button id="exportDebugLog" class="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-sm transition-colors">
+                        <i class="fas fa-download mr-1"></i>
+                        导出
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 调试统计 -->
+            <div class="grid grid-cols-4 gap-2 mb-4 text-sm">
+                <div class="bg-gray-800 p-2 rounded text-center">
+                    <div class="text-blue-400 font-bold" id="debugCountInfo">0</div>
+                    <div class="text-gray-300">Info</div>
+                </div>
+                <div class="bg-gray-800 p-2 rounded text-center">
+                    <div class="text-green-400 font-bold" id="debugCountSuccess">0</div>
+                    <div class="text-gray-300">Success</div>
+                </div>
+                <div class="bg-gray-800 p-2 rounded text-center">
+                    <div class="text-yellow-400 font-bold" id="debugCountWarning">0</div>
+                    <div class="text-gray-300">Warning</div>
+                </div>
+                <div class="bg-gray-800 p-2 rounded text-center">
+                    <div class="text-red-400 font-bold" id="debugCountError">0</div>
+                    <div class="text-gray-300">Error</div>
+                </div>
             </div>
 
-            <div>
-                <label for="nickName" class="block text-sm font-medium text-gray-700 mb-2">
-                    <i class="fas fa-id-card mr-2"></i>
-                    昵称（可选）
-                </label>
-                <input type="text" 
-                       id="nickName" 
-                       name="nickName" 
-                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                       placeholder="请输入您的昵称">
+            <!-- 调试日志输出 -->
+            <div class="bg-black p-4 rounded border border-gray-700 h-80 overflow-y-auto" id="debugLog">
+                <div class="text-green-400 mb-2 font-mono text-xs">调试模式已启用 - 等待日志输出...</div>
             </div>
-
-            <button type="submit" 
-                    id="loginBtn"
-                    class="w-full bg-blue-500 hover:bg-blue-600 text-white font-medium py-3 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center">
-                <span id="loginText">
-                    <i class="fas fa-sign-in-alt mr-2"></i>
-                    登录
-                </span>
-                <span id="loginLoading" class="hidden">
-                    <i class="fas fa-spinner fa-spin mr-2"></i>
-                    登录中...
-                </span>
-            </button>
-        </form>
-
-        <!-- 提示信息 -->
-        <div id="message" class="mt-4 p-3 rounded-lg hidden">
-            <span id="messageText"></span>
-        </div>
-
-        <!-- 帮助信息 -->
-        <div class="mt-8 text-center">
-            <p class="text-sm text-gray-500">
-                <i class="fas fa-info-circle mr-1"></i>
-                请使用有效的PetMeet ID登录管理面板
-            </p>
         </div>
     </div>
 
     <script>
-        // 登录功能
+        // 调试系统
+        class DebugLogger {
+            constructor() {
+                this.logs = [];
+                this.isVisible = false;
+                this.counts = {
+                    info: 0,
+                    success: 0,
+                    warning: 0,
+                    error: 0
+                };
+                this.init();
+            }
+
+            init() {
+                // 调试面板切换
+                document.getElementById('debugToggle').addEventListener('click', () => {
+                    this.toggleDebugPanel();
+                });
+
+                // 清空日志
+                document.getElementById('clearDebugLog').addEventListener('click', () => {
+                    this.clearLogs();
+                });
+
+                // 导出日志
+                document.getElementById('exportDebugLog').addEventListener('click', () => {
+                    this.exportLogs();
+                });
+
+                // 添加初始日志
+                this.log('调试系统初始化完成', 'success');
+            }
+
+            toggleDebugPanel() {
+                const panel = document.getElementById('debugPanel');
+                this.isVisible = !this.isVisible;
+                
+                if (this.isVisible) {
+                    panel.classList.remove('hidden');
+                    this.log('调试面板已显示', 'info');
+                } else {
+                    panel.classList.add('hidden');
+                }
+            }
+
+            log(message, level = 'info', data = null) {
+                const timestamp = new Date().toLocaleTimeString('zh-CN', { 
+                    hour12: false,
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    fractionalSecondDigits: 3
+                });
+
+                const logEntry = {
+                    timestamp,
+                    level,
+                    message,
+                    data: data ? JSON.stringify(data, null, 2) : null
+                };
+
+                this.logs.push(logEntry);
+                this.counts[level]++;
+                this.updateDisplay();
+                this.updateCounts();
+
+                // 同时输出到浏览器控制台
+                const consoleMethod = level === 'error' ? 'error' : 
+                                    level === 'warning' ? 'warn' : 
+                                    level === 'success' ? 'info' : 'log';
+                console[consoleMethod](`[${timestamp}] ${message}`, data || '');
+            }
+
+            updateDisplay() {
+                const logContainer = document.getElementById('debugLog');
+                const latestLogs = this.logs.slice(-50); // 只显示最新50条
+
+                const colorClasses = {
+                    info: 'text-blue-400',
+                    success: 'text-green-400',
+                    warning: 'text-yellow-400',
+                    error: 'text-red-400'
+                };
+
+                logContainer.innerHTML = latestLogs.map(log => {
+                    const dataStr = log.data ? `\n    数据: ${log.data}` : '';
+                    const levelColor = colorClasses[log.level] || 'text-gray-400';
+                    
+                    return `<div class="mb-1 font-mono text-xs leading-relaxed">
+                        <span class="text-gray-400">[${log.timestamp}]</span>
+                        <span class="${levelColor} font-bold">[${log.level.toUpperCase()}]</span>
+                        <span class="text-white">${this.escapeHtml(log.message)}</span>
+                        ${dataStr ? `<div class="text-gray-300 ml-4 mt-1 whitespace-pre-wrap">${this.escapeHtml(dataStr)}</div>` : ''}
+                    </div>`;
+                }).join('');
+
+                // 自动滚动到底部
+                logContainer.scrollTop = logContainer.scrollHeight;
+            }
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            updateCounts() {
+                document.getElementById('debugCountInfo').textContent = this.counts.info;
+                document.getElementById('debugCountSuccess').textContent = this.counts.success;
+                document.getElementById('debugCountWarning').textContent = this.counts.warning;
+                document.getElementById('debugCountError').textContent = this.counts.error;
+            }
+
+            clearLogs() {
+                this.logs = [];
+                this.counts = { info: 0, success: 0, warning: 0, error: 0 };
+                this.updateDisplay();
+                this.updateCounts();
+                this.log('调试日志已清空', 'info');
+            }
+
+            exportLogs() {
+                const logText = this.logs.map(log => {
+                    const dataStr = log.data ? ` | 数据: ${log.data}` : '';
+                    return `[${log.timestamp}] [${log.level.toUpperCase()}] ${log.message}${dataStr}`;
+                }).join('\n');
+
+                const blob = new Blob([logText], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `petmeet-admin-debug-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.log`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                this.log('调试日志已导出', 'success');
+            }
+        }
+
+        // 初始化调试器
+        const debugLogger = new DebugLogger();
+
+        // 登录功能（增强版）
         document.getElementById('loginForm').addEventListener('submit', async function(e) {
             e.preventDefault();
+            
+            debugLogger.log('开始登录流程', 'info');
             
             const petMeetId = document.getElementById('petMeetId').value.trim();
             const nickName = document.getElementById('nickName').value.trim();
             
+            debugLogger.log('获取表单数据', 'info', { 
+                petMeetId, 
+                nickName: nickName || '(未填写)',
+                petMeetIdLength: petMeetId.length 
+            });
+            
             if (!petMeetId) {
+                debugLogger.log('PetMeet ID验证失败', 'error', { reason: 'ID为空' });
                 showMessage('请输入PetMeet ID', 'error');
                 return;
             }
 
+            if (!/^\d+$/.test(petMeetId)) {
+                debugLogger.log('PetMeet ID格式验证失败', 'error', { 
+                    petMeetId, 
+                    reason: 'ID包含非数字字符' 
+                });
+                showMessage('PetMeet ID只能包含数字', 'error');
+                return;
+            }
+
+            debugLogger.log('表单验证通过', 'success');
+            
             // 显示加载状态
             setLoading(true);
+            debugLogger.log('设置登录按钮为加载状态', 'info');
+
+            const requestData = {
+                petMeetId: petMeetId,
+                nickName: nickName
+            };
+
+            debugLogger.log('准备发送登录请求', 'info', {
+                url: '/api/admin/auth/login',
+                method: 'POST',
+                requestData
+            });
 
             try {
+                const startTime = Date.now();
+                debugLogger.log('发送HTTP请求中...', 'info');
+
                 const response = await fetch('/api/admin/auth/login', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({
-                        petMeetId: petMeetId,
-                        nickName: nickName
-                    })
+                    body: JSON.stringify(requestData)
+                });
+
+                const requestDuration = Date.now() - startTime;
+                debugLogger.log('HTTP请求完成', 'info', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    duration: `${requestDuration}ms`,
+                    headers: Object.fromEntries(response.headers.entries())
                 });
 
                 const result = await response.json();
+                debugLogger.log('响应数据解析完成', 'info', {
+                    responseData: result
+                });
 
                 if (result.success) {
+                    debugLogger.log('登录成功', 'success', {
+                        token: result.token ? `${result.token.substring(0, 20)}...` : 'null',
+                        user: result.user
+                    });
+
                     // 保存token到localStorage
+                    debugLogger.log('保存认证信息到localStorage', 'info');
                     localStorage.setItem('adminToken', result.token);
                     localStorage.setItem('adminUser', JSON.stringify(result.user));
                     
+                    debugLogger.log('localStorage保存成功', 'success', {
+                        tokenSaved: !!localStorage.getItem('adminToken'),
+                        userSaved: !!localStorage.getItem('adminUser')
+                    });
+
                     showMessage('登录成功，正在跳转...', 'success');
+                    debugLogger.log('准备跳转到管理面板', 'info');
                     
                     // 延迟跳转到管理面板
                     setTimeout(() => {
+                        debugLogger.log('执行页面跳转', 'info', { targetUrl: '/' });
                         window.location.href = '/';
                     }, 1000);
                 } else {
+                    debugLogger.log('登录失败', 'error', {
+                        errorMessage: result.message,
+                        errorCode: result.code,
+                        fullResponse: result
+                    });
                     showMessage(result.message || '登录失败', 'error');
                 }
             } catch (error) {
+                debugLogger.log('登录过程出现异常', 'error', {
+                    errorName: error.name,
+                    errorMessage: error.message,
+                    errorStack: error.stack
+                });
                 console.error('登录错误:', error);
                 showMessage('网络错误，请重试', 'error');
             } finally {
                 setLoading(false);
+                debugLogger.log('重置登录按钮状态', 'info');
             }
         });
 
-        // 显示消息
+        // 显示消息（增强版）
         function showMessage(text, type) {
+            debugLogger.log('显示用户消息', 'info', { text, type });
+            
             const messageDiv = document.getElementById('message');
             const messageText = document.getElementById('messageText');
             
@@ -137,11 +420,14 @@
             // 3秒后自动隐藏
             setTimeout(() => {
                 messageDiv.classList.add('hidden');
+                debugLogger.log('用户消息已自动隐藏', 'info');
             }, 3000);
         }
 
-        // 设置加载状态
+        // 设置加载状态（增强版）
         function setLoading(loading) {
+            debugLogger.log('更新加载状态', 'info', { loading });
+            
             const loginBtn = document.getElementById('loginBtn');
             const loginText = document.getElementById('loginText');
             const loginLoading = document.getElementById('loginLoading');
@@ -159,30 +445,97 @@
             }
         }
 
-        // 检查是否已经登录
+        // 检查是否已经登录（增强版）
         window.addEventListener('load', function() {
+            debugLogger.log('页面加载完成，检查现有认证状态', 'info');
+            
             const token = localStorage.getItem('adminToken');
+            const user = localStorage.getItem('adminUser');
+            
+            debugLogger.log('检查localStorage中的认证信息', 'info', {
+                hasToken: !!token,
+                hasUser: !!user,
+                tokenLength: token ? token.length : 0
+            });
+            
             if (token) {
+                debugLogger.log('发现现有token，验证有效性', 'info');
+                
                 // 验证token是否有效
                 fetch('/api/admin/auth/validate', {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
                 })
-                .then(response => response.json())
+                .then(response => {
+                    debugLogger.log('Token验证请求完成', 'info', {
+                        status: response.status,
+                        statusText: response.statusText
+                    });
+                    return response.json();
+                })
                 .then(result => {
+                    debugLogger.log('Token验证结果', 'info', { result });
+                    
                     if (result.success) {
+                        debugLogger.log('Token有效，执行自动登录跳转', 'success');
                         // token有效，直接跳转到管理面板
                         window.location.href = '/';
+                    } else {
+                        debugLogger.log('Token无效', 'warning', { reason: result.message });
                     }
                 })
                 .catch(error => {
-                    console.log('Token验证失败:', error);
+                    debugLogger.log('Token验证失败', 'error', {
+                        errorMessage: error.message,
+                        errorName: error.name
+                    });
+                    
                     // token无效，清除本地存储
                     localStorage.removeItem('adminToken');
                     localStorage.removeItem('adminUser');
+                    debugLogger.log('已清除无效的认证信息', 'info');
                 });
+            } else {
+                debugLogger.log('未发现现有token，用户需要重新登录', 'info');
             }
+        });
+
+        // 监听网络状态
+        window.addEventListener('online', () => {
+            debugLogger.log('网络连接已恢复', 'success');
+        });
+
+        window.addEventListener('offline', () => {
+            debugLogger.log('网络连接已断开', 'warning');
+        });
+
+        // 监听页面可见性变化
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                debugLogger.log('页面已隐藏', 'info');
+            } else {
+                debugLogger.log('页面已显示', 'info');
+            }
+        });
+
+        // 监听页面错误
+        window.addEventListener('error', (event) => {
+            debugLogger.log('页面JavaScript错误', 'error', {
+                message: event.message,
+                filename: event.filename,
+                lineno: event.lineno,
+                colno: event.colno,
+                error: event.error?.stack
+            });
+        });
+
+        // 监听未处理的Promise拒绝
+        window.addEventListener('unhandledrejection', (event) => {
+            debugLogger.log('未处理的Promise拒绝', 'error', {
+                reason: event.reason,
+                promise: event.promise
+            });
         });
     </script>
 </body>
