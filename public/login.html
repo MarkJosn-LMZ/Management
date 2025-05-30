@@ -381,8 +381,8 @@
                     
                     // 延迟跳转到管理面板
                     setTimeout(() => {
-                        debugLogger.log('执行页面跳转', 'info', { targetUrl: '/' });
-                        window.location.href = '/';
+                        debugLogger.log('执行页面跳转', 'info', { targetUrl: '/index.html' });
+                        window.location.href = '/index.html';
                     }, 1000);
                 } else {
                     debugLogger.log('登录失败', 'error', {
@@ -480,7 +480,7 @@
                     if (result.success) {
                         debugLogger.log('Token有效，执行自动登录跳转', 'success');
                         // token有效，直接跳转到管理面板
-                        window.location.href = '/';
+                        window.location.href = '/index.html';
                     } else {
                         debugLogger.log('Token无效', 'warning', { reason: result.message });
                     }
